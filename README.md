@@ -1,214 +1,168 @@
-# AWS Public Resource Exposure Monitor
+# 🛡️ AWS Public Resource Exposure Monitor
 
-A comprehensive tool to detect, alert on, and remediate publicly exposed AWS resources, helping to improve your cloud security posture.
+<div align="center">
 
-![AWS Exposure Monitor](https://img.shields.io/badge/AWS-Security%20Monitoring-orange)
-![Python](https://img.shields.io/badge/Python-3.7%2B-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
+![AWS Exposure Monitor](https://img.shields.io/badge/AWS-Security%20Monitoring-orange?style=for-the-badge&logo=amazon-aws)
+![Python](https://img.shields.io/badge/Python-3.7+-blue?style=for-the-badge&logo=python)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-## Features
+</div>
 
-- **Detect public resources:**
-  - S3 buckets (BlockPublicAccess settings)
-  - EBS/RDS snapshots
-  - AMIs
-  - Security groups (open to 0.0.0.0/0 on sensitive ports)
-  - ECR repositories with public access
-  - API Gateway endpoints without authorization
-  - CloudFront distributions with public access
-  - Lambda functions with public access policies
-  - Elastic IP addresses
-  - RDS instances with public accessibility
-  - Elastic Load Balancers (public-facing)
-  - Elasticsearch domains with public access
+A powerful security tool that scans your AWS environment for publicly exposed resources, generates detailed reports, and helps you remediate security risks.
 
-- **Alert mechanisms:**
-  - Slack integration via Webhooks
-  - Microsoft Teams integration via Webhooks
-  - Email notifications via Amazon SES (optional)
-  - JSON output for integration with other tools
-  - HTML reports with charts and visualizations
-  - AWS Security Hub integration (optional)
+## ✨ Features
 
-- **Optional auto-remediation:**
-  - Fix S3 bucket permissions
-  - Make snapshots private
-  - Update security group rules
-  - Restrict RDS instance public access
-  - More remediators can be added as needed
+### 🔍 Comprehensive Resource Scanning
 
-## Installation
+| Resource Type | What We Check |
+|---------------|--------------|
+| **S3 Buckets** | Public access blocks, bucket policies, ACLs, encryption |
+| **Security Groups** | Open ports (0.0.0.0/0), sensitive services exposure |
+| **EBS Snapshots** | Public sharing permissions, encryption |
+| **RDS Snapshots** | Public sharing permissions, encryption |
+| **AMIs** | Public sharing, launch permissions, encryption |
+| **ECR Repositories** | Public access policies |
+| **API Gateway** | Endpoints without authorization |
+| **Lambda Functions** | Public access policies, function URLs |
+| **CloudFront** | Distributions without WAF, S3 origins without OAI |
+| **Elastic IPs** | Unassociated IPs, security of attached instances |
+| **RDS Instances** | Public accessibility, encryption |
+| **Load Balancers** | Internet-facing LBs, security configurations |
+| **Elasticsearch** | Public access, encryption |
 
-1. Clone this repository:
-   ```
-   git clone https://github.com/yourusername/aws-exposure-monitor.git
-   cd aws-exposure-monitor
-   ```
+### 📊 Rich Reporting Options
 
-2. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
+- **Interactive HTML Reports** with charts and visualizations
+- **JSON output** for integration with other tools
+- **Colored console output** for better readability
+- **Slack notifications** with detailed findings
+- **Microsoft Teams notifications** with adaptive cards
 
-3. Configure AWS credentials:
-   ```
-   aws configure
-   ```
-   Or set up environment variables:
-   ```
-   export AWS_ACCESS_KEY_ID=your_access_key
-   export AWS_SECRET_ACCESS_KEY=your_secret_key
-   export AWS_DEFAULT_REGION=your_default_region
-   ```
+### 🛠️ Remediation Capabilities
 
-## Usage
+- Automatically fix S3 bucket permissions
+- Make snapshots private
+- Update security group rules
+- Restrict RDS instance public access
 
-### Basic Scan
+## 🚀 Quick Start
 
-Scan all resource types and print results:
+### Installation
 
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/aws-exposure-monitor.git
+cd aws-exposure-monitor
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure AWS credentials
+aws configure
 ```
+
+### Basic Usage
+
+```bash
+# Scan all resource types in all regions
 python main.py
-```
 
-### Scan Specific Resources
-
-Scan only S3 buckets:
-
-```
+# Scan only S3 buckets
 python main.py --scan s3
-```
 
-Available scan options: `s3`, `ebs`, `rds`, `amis`, `sg`, or `all` (default)
+# Scan a specific region
+python main.py --region us-east-1
 
-### Generate HTML Report
-
-Generate a detailed HTML report with charts and tables:
-
-```
+# Generate an HTML report
 python main.py --html-report report.html
-```
 
-### Save Results to JSON File
-
-```
+# Save findings to JSON
 python main.py --output findings.json
 ```
 
-### Send Notifications
+## 📋 Command Line Options
 
-Send alerts to Slack:
+| Option | Description |
+|--------|-------------|
+| `--scan TYPE` | Resource type to scan (`s3`, `ebs`, `rds`, `amis`, `sg`, `ecr`, `api`, `cloudfront`, `lambda`, `eip`, `rds-instances`, `elb`, `elasticsearch`, or `all`) |
+| `--region REGION` | AWS region to scan (e.g., `us-east-1`, `eu-west-1`) |
+| `--output FILE` | Save findings to JSON file |
+| `--html-report FILE` | Generate HTML report |
+| `--notify` | Send notifications for findings |
+| `--slack-webhook URL` | Slack webhook URL for notifications |
+| `--teams-webhook URL` | Microsoft Teams webhook URL for notifications |
+| `--remediate` | Automatically fix issues (use with caution) |
+| `--verbose` | Show detailed progress information |
+| `--no-color` | Disable colored output |
 
-```
-python main.py --notify --slack-webhook https://hooks.slack.com/services/YOUR/WEBHOOK/URL
-```
+## 📊 HTML Reports
 
-Send alerts to Microsoft Teams:
+The tool generates comprehensive HTML reports with:
 
-```
-python main.py --notify --teams-webhook https://your-teams-webhook-url
-```
+- Summary dashboard with risk breakdown
+- Interactive charts showing findings by resource type and risk level
+- Detailed tables of all findings with filtering
+- Specific remediation recommendations
 
-### Auto-Remediation
+![HTML Report Example](https://via.placeholder.com/800x400?text=HTML+Report+Example)
 
-Automatically fix issues (use with caution):
-
-```
-python main.py --remediate
-```
-
-## HTML Reports
-
-The tool can generate comprehensive HTML reports with:
-
-- Summary of findings by risk level
-- Interactive charts and visualizations
-- Detailed tables of all findings
-- Filtering and sorting capabilities
-- Recommendations for remediation
-
-Example:
-
-```
-python main.py --html-report exposure_report.html
-```
-
-## Microsoft Teams Integration
-
-The Microsoft Teams notifier sends formatted adaptive cards with:
-
-- Color-coded risk levels
-- Resource details and region
-- Issue description
-- Remediation recommendations
-
-To set up Teams integration:
-
-1. Create an incoming webhook in your Teams channel
-2. Pass the webhook URL to the tool using the `--teams-webhook` parameter
-3. Customize the message format in `notifier/teams.py` if needed
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 aws-exposure-monitor/
-├── scanner/
-│   ├── s3.py         # S3 bucket scanner
-│   ├── ebs.py        # EBS snapshot scanner
-│   ├── rds.py        # RDS snapshot scanner
-│   ├── amis.py       # AMI scanner
-│   ├── sg.py         # Security group scanner
-│   ├── ecr.py        # ECR repository scanner
-│   └── api.py        # API Gateway scanner
-├── notifier/
-│   ├── slack.py      # Slack notification module
-│   └── teams.py      # Microsoft Teams notification module
-├── remediator/
-│   ├── s3.py         # S3 remediation module
-│   └── ebs.py        # EBS snapshot remediation
-├── reporter/
-│   ├── html_reporter.py  # HTML report generator
-│   └── console_reporter.py  # Colored console output
-├── main.py           # Main application
-├── requirements.txt  # Dependencies
-└── README.md         # This file
+├── scanner/                # Resource scanners
+│   ├── s3.py              # S3 bucket scanner
+│   ├── sg.py              # Security group scanner
+│   ├── ebs.py             # EBS snapshot scanner
+│   ├── rds.py             # RDS snapshot scanner
+│   ├── amis.py            # AMI scanner
+│   ├── ecr.py             # ECR repository scanner
+│   ├── api.py             # API Gateway scanner
+│   ├── lambda_scanner.py  # Lambda function scanner
+│   ├── cloudfront.py      # CloudFront scanner
+│   ├── eip.py             # Elastic IP scanner
+│   ├── rds_instances.py   # RDS instance scanner
+│   ├── elb.py             # Load balancer scanner
+│   └── elasticsearch.py   # Elasticsearch scanner
+├── notifier/              # Notification modules
+│   ├── slack.py           # Slack notifications
+│   └── teams.py           # Microsoft Teams notifications
+├── remediator/            # Remediation modules
+│   ├── s3.py              # S3 remediation
+│   └── ebs.py             # EBS snapshot remediation
+├── reporter/              # Reporting modules
+│   ├── html_reporter.py   # HTML report generator
+│   └── console_reporter.py # Console output formatter
+├── main.py                # Main application
+├── requirements.txt       # Dependencies
+└── README.md              # This file
 ```
 
-## Adding New Scanners
-
-To add a new scanner:
-
-1. Create a new file in the `scanner/` directory
-2. Implement a function that returns findings in the standard format
-3. Import and call the function from `main.py`
-
-## Adding New Remediators
-
-To add a new remediator:
-
-1. Create a new file in the `remediator/` directory
-2. Implement a function that takes findings and performs remediation
-3. Import and call the function from `main.py`
-
-## Continuous Monitoring
-
-For continuous monitoring:
-
-1. Deploy as an AWS Lambda function with scheduled triggers
-2. Set up CloudWatch Events to trigger scans on resource creation/modification
-3. Integrate with AWS Security Hub for centralized findings management
-
-## Security Considerations
+## 🔒 Security Considerations
 
 - This tool requires read access to various AWS services
 - For remediation, it requires write access to modify resources
-- Consider using a dedicated IAM role with least privilege
-- Store webhook URLs and credentials securely (e.g., AWS Secrets Manager)
+- Use a dedicated IAM role with least privilege
+- Store webhook URLs securely (e.g., AWS Secrets Manager)
 
-## License
+## 🔄 Continuous Monitoring
+
+For ongoing security monitoring:
+
+1. Deploy as an AWS Lambda function with scheduled triggers
+2. Set up CloudWatch Events to trigger scans on resource creation
+3. Integrate with AWS Security Hub for centralized findings
+
+## 📝 License
 
 [MIT License](LICENSE)
 
-## Contributing
+## 👥 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+<div align="center">
+Made with ❤️ for AWS security
+</div>

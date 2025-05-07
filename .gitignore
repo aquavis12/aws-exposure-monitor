@@ -10,3 +10,12 @@ remediator/__pycache__/ebs.cpython-311.pyc
 notifier/__pycache__/teams.cpython-311.pyc
 reporter/__pycache__/__init__.cpython-311.pyc
 reporter/__pycache__/html_reporter.cpython-311.pyc
+scanner/__pycache__/api.cpython-311.pyc
+scanner/__pycache__/cloudfront.cpython-311.pyc
+scanner/__pycache__/eip.cpython-311.pyc
+scanner/__pycache__/elb.cpython-311.pyc
+scanner/__pycache__/rds_instances.cpython-311.pyc
+scanner/__pycache__/elasticsearch.cpython-311.pyc
+scanner/__pycache__/ecr.cpython-311.pyc
+scanner/__pycache__/lambda_scanner.cpython-311.pyc
+report.html

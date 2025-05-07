@@ -6,10 +6,15 @@ from botocore.exceptions import ClientError
 import sys
 
 
-def scan_security_groups():
+def scan_security_groups(region=None):
     """
     Scan security groups for rules allowing public access to sensitive ports
-    Returns a list of dictionaries containing vulnerable resources
+    
+    Args:
+        region (str, optional): AWS region to scan. If None, scan all regions.
+    
+    Returns:
+        list: List of dictionaries containing vulnerable resources
     """
     findings = []
     
@@ -48,18 +53,27 @@ def scan_security_groups():
     print("Starting security group scan...")
     
     try:
-        # Get all regions
+        # Get regions to scan
         ec2_client = boto3.client('ec2')
-        regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-        print(f"Scanning {len(regions)} regions")
+        if region:
+            regions = [region]
+            print(f"Scanning region: {region}")
+        else:
+            regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
+            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_sg_count = 0
+        regions_with_sgs = 0
         
-        for region in regions:
+        for current_region in regions:
             region_count += 1
-            print(f"[{region_count}/{len(regions)}] Scanning region: {region}")
-            regional_client = boto3.client('ec2', region_name=region)
+            if len(regions) > 1:
+                print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
+            else:
+                print(f"Scanning region: {current_region}")
+                
+            regional_client = boto3.client('ec2', region_name=current_region)
             
             try:
                 # Get all security groups
@@ -69,10 +83,11 @@ def scan_security_groups():
                 # Filter out default security groups
                 non_default_sg = [sg for sg in sg_list if sg['GroupName'] != 'default']
                 sg_count = len(non_default_sg)
-                total_sg_count += sg_count
                 
                 if sg_count > 0:
-                    print(f"  Scanning {sg_count} non-default security groups in {region}")
+                    total_sg_count += sg_count
+                    regions_with_sgs += 1
+                    print(f"  Scanning {sg_count} non-default security groups in {current_region}")
                 
                     sg_index = 0
                     for sg in non_default_sg:
@@ -106,7 +121,7 @@ def scan_security_groups():
                                     
                                     if instance_id:
                                         associated_resources.append(f"EC2:{instance_id} ({instance_name})")
-                        except Exception as e:
+                        except Exception:
                             # Silently handle errors getting associated resources
                             pass
                         
@@ -152,7 +167,7 @@ def scan_security_groups():
                                                 'ResourceDescription': sg_description,
                                                 'VpcId': vpc_id,
                                                 'AssociatedResources': associated_resources[:5],  # Limit to first 5
-                                                'Region': region,
+                                                'Region': current_region,
                                                 'Risk': risk_level,
                                                 'Issue': f'Security group allows public access ({public_cidr}) to {sensitive_ports[port]} (port {port})',
                                                 'Recommendation': f'Restrict access to port {port} to specific IP ranges'
@@ -169,7 +184,7 @@ def scan_security_groups():
                                         'ResourceDescription': sg_description,
                                         'VpcId': vpc_id,
                                         'AssociatedResources': associated_resources[:5],  # Limit to first 5
-                                        'Region': region,
+                                        'Region': current_region,
                                         'Risk': 'CRITICAL',
                                         'Issue': f'Security group allows public access ({public_cidr}) to ALL ports and protocols',
                                         'Recommendation': 'Restrict access to specific ports and IP ranges'
@@ -187,7 +202,7 @@ def scan_security_groups():
                                         'ResourceDescription': sg_description,
                                         'VpcId': vpc_id,
                                         'AssociatedResources': associated_resources[:5],  # Limit to first 5
-                                        'Region': region,
+                                        'Region': current_region,
                                         'Risk': 'HIGH',
                                         'Issue': f'Security group allows public access ({public_cidr}) to all ports on protocol {ip_protocol}',
                                         'Recommendation': f'Restrict access to specific ports for {ip_protocol} protocol'
@@ -197,14 +212,19 @@ def scan_security_groups():
                                     print(f"    [!] FINDING: {sg_name} ({sg_id}) - Public access to all ports on protocol {ip_protocol} - HIGH risk")
             
             except ClientError as e:
-                print(f"  Error scanning security groups in {region}: {e}")
+                print(f"  Error scanning security groups in {current_region}: {e}")
     
     except Exception as e:
         print(f"Error scanning security groups: {e}")
     
-    if findings:
-        print(f"Security group scan complete. Found {len(findings)} issues across {total_sg_count} security groups.")
+    if total_sg_count == 0:
+        print("No security groups found (excluding default security groups).")
     else:
-        print("Security group scan complete. No issues found.")
+        print(f"Security group scan complete. Scanned {total_sg_count} security groups across {regions_with_sgs} regions.")
+    
+    if findings:
+        print(f"Found {len(findings)} security group issues.")
+    else:
+        print("No security group issues found.")
     
     return findings

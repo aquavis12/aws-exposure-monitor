@@ -6,12 +6,19 @@ import sys
 from botocore.exceptions import ClientError
 
 
-def scan_s3_buckets():
+def scan_s3_buckets(region=None):
     """
     Scan S3 buckets for public access settings and encryption
-    Returns a list of dictionaries containing vulnerable resources
+    
+    Args:
+        region (str, optional): AWS region to scan. If None, scan all regions.
+    
+    Returns:
+        list: List of dictionaries containing vulnerable resources
     """
     findings = []
+    
+    # S3 is a global service, but we can filter by region
     s3_client = boto3.client('s3')
     
     print("Starting S3 bucket scan...")
@@ -19,8 +26,25 @@ def scan_s3_buckets():
     try:
         # Get all buckets
         response = s3_client.list_buckets()
-        buckets = response['Buckets']
-        print(f"Found {len(buckets)} S3 buckets to scan")
+        all_buckets = response['Buckets']
+        
+        # Filter buckets by region if specified
+        if region:
+            buckets = []
+            for bucket in all_buckets:
+                bucket_name = bucket['Name']
+                try:
+                    location_response = s3_client.get_bucket_location(Bucket=bucket_name)
+                    bucket_region = location_response.get('LocationConstraint') or 'us-east-1'
+                    if bucket_region == region:
+                        buckets.append(bucket)
+                except Exception:
+                    # Skip buckets we can't determine the region for
+                    pass
+            print(f"Found {len(buckets)} S3 buckets in region {region}")
+        else:
+            buckets = all_buckets
+            print(f"Found {len(buckets)} S3 buckets across all regions")
         
         for i, bucket in enumerate(buckets, 1):
             bucket_name = bucket['Name']
@@ -31,14 +55,19 @@ def scan_s3_buckets():
             # Try to get bucket location
             try:
                 location_response = s3_client.get_bucket_location(Bucket=bucket_name)
-                region = location_response.get('LocationConstraint') or 'us-east-1'
+                bucket_region = location_response.get('LocationConstraint') or 'us-east-1'
                 # If location is None, it's in us-east-1
-                if region is None:
-                    region = 'us-east-1'
-                print(f"  Region: {region}")
+                if bucket_region is None:
+                    bucket_region = 'us-east-1'
+                print(f"  Region: {bucket_region}")
             except Exception as e:
-                region = 'global'
+                bucket_region = 'global'
                 print(f"  Could not determine region: {e}")
+            
+            # Skip if we're filtering by region and this bucket is in a different region
+            if region and bucket_region != region:
+                print(f"  Skipping bucket in region {bucket_region} (not in target region {region})")
+                continue
             
             # Check bucket public access block settings
             try:
@@ -58,7 +87,7 @@ def scan_s3_buckets():
                         'ResourceType': 'S3 Bucket',
                         'ResourceId': bucket_name,
                         'ResourceName': bucket_name,
-                        'Region': region,
+                        'Region': bucket_region,
                         'Risk': 'HIGH',
                         'Issue': 'S3 bucket has public access block disabled',
                         'Recommendation': 'Enable all public access block settings for this bucket'
@@ -71,7 +100,7 @@ def scan_s3_buckets():
                         'ResourceType': 'S3 Bucket',
                         'ResourceId': bucket_name,
                         'ResourceName': bucket_name,
-                        'Region': region,
+                        'Region': bucket_region,
                         'Risk': 'HIGH',
                         'Issue': 'S3 bucket has no public access block configuration',
                         'Recommendation': 'Configure public access block for this bucket'
@@ -92,7 +121,7 @@ def scan_s3_buckets():
                         'ResourceType': 'S3 Bucket',
                         'ResourceId': bucket_name,
                         'ResourceName': bucket_name,
-                        'Region': region,
+                        'Region': bucket_region,
                         'Risk': 'HIGH',
                         'Issue': 'S3 bucket policy allows public access',
                         'Recommendation': 'Review and restrict bucket policy'
@@ -116,7 +145,7 @@ def scan_s3_buckets():
                             'ResourceType': 'S3 Bucket',
                             'ResourceId': bucket_name,
                             'ResourceName': bucket_name,
-                            'Region': region,
+                            'Region': bucket_region,
                             'Risk': 'HIGH',
                             'Issue': 'S3 bucket ACL allows public access',
                             'Recommendation': 'Remove public access grants from bucket ACL'
@@ -137,7 +166,7 @@ def scan_s3_buckets():
                         'ResourceType': 'S3 Bucket',
                         'ResourceId': bucket_name,
                         'ResourceName': bucket_name,
-                        'Region': region,
+                        'Region': bucket_region,
                         'Risk': 'MEDIUM',
                         'Issue': 'S3 bucket does not have default encryption enabled',
                         'Recommendation': 'Enable default encryption for this bucket using SSE-S3 or SSE-KMS'
@@ -156,7 +185,7 @@ def scan_s3_buckets():
                         'ResourceType': 'S3 Bucket',
                         'ResourceId': bucket_name,
                         'ResourceName': bucket_name,
-                        'Region': region,
+                        'Region': bucket_region,
                         'Risk': 'LOW',
                         'Issue': 'S3 bucket does not have versioning enabled',
                         'Recommendation': 'Enable versioning for this bucket to protect against accidental deletion'
