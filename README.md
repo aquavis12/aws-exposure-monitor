@@ -16,25 +16,27 @@ A powerful security tool that scans your AWS environment for publicly exposed re
 
 | Resource Type | What We Check |
 |---------------|--------------|
-| **S3 Buckets** | Public access blocks, bucket policies, ACLs, encryption |
-| **Security Groups** | Open ports (0.0.0.0/0), sensitive services exposure |
-| **EBS Snapshots** | Public sharing permissions, encryption |
-| **RDS Snapshots** | Public sharing permissions, encryption |
-| **AMIs** | Public sharing, launch permissions, encryption |
-| **ECR Repositories** | Public access policies |
-| **API Gateway** | Endpoints without authorization |
-| **Lambda Functions** | Public access policies, function URLs |
-| **CloudFront** | Distributions without WAF, S3 origins without OAI |
+| **S3 Buckets** | Public access blocks, bucket policies, ACLs, encryption, versioning, logging |
+| **Security Groups** | Open ports (0.0.0.0/0), sensitive services exposure, all traffic rules |
+| **EBS Snapshots** | Public sharing permissions, encryption status |
+| **RDS Snapshots** | Public sharing permissions, encryption status |
+| **AMIs** | Public sharing, launch permissions, encryption of underlying snapshots |
+| **ECR Repositories** | Public access policies, public registry settings |
+| **API Gateway** | Endpoints without authorization, missing API keys |
+| **Lambda Functions** | Public access policies, function URLs without authentication |
+| **CloudFront** | Distributions without WAF, S3 origins without OAI, missing default root objects |
 | **Elastic IPs** | Unassociated IPs, security of attached instances |
-| **RDS Instances** | Public accessibility, encryption |
-| **Load Balancers** | Internet-facing LBs, security configurations |
-| **Elasticsearch** | Public access, encryption |
+| **RDS Instances** | Public accessibility, encryption, enhanced monitoring |
+| **Load Balancers** | Internet-facing LBs, HTTP without HTTPS redirect, outdated SSL/TLS policies |
+| **Elasticsearch** | Public access, encryption at rest, node-to-node encryption, HTTPS enforcement |
+| **IAM Users** | Inactive users (90+ days), old access keys (60+ days), missing MFA, admin privileges |
 
 ### 📊 Rich Reporting Options
 
 - **Interactive HTML Reports** with charts and visualizations
 - **JSON output** for integration with other tools
 - **Colored console output** for better readability
+- **Risk level filtering** to focus on critical issues first
 - **Slack notifications** with detailed findings *(work in progress)*
 - **Microsoft Teams notifications** with adaptive cards *(work in progress)*
 
@@ -44,6 +46,7 @@ A powerful security tool that scans your AWS environment for publicly exposed re
 - Make snapshots private *(work in progress)*
 - Update security group rules *(work in progress)*
 - Restrict RDS instance public access *(work in progress)*
+- Disable inactive access keys *(work in progress)*
 
 ## 🚀 Quick Start
 
@@ -76,27 +79,66 @@ python main.py --region us-east-1
 # Scan S3 buckets in a specific region
 python main.py --scan s3 --region us-east-1
 
+# Filter for HIGH and CRITICAL risk findings only
+python main.py --risk-level HIGH
+
 # Generate an HTML report
 python main.py --html-report report.html
 
 # Save findings to JSON
 python main.py --output findings.json
+
+# Scan IAM users for security issues
+python main.py --scan iam
+
+# Scan and attempt to remediate issues (use with caution)
+python main.py --remediate
 ```
 
 ## 📋 Command Line Options
 
-| Option | Description |
-|--------|-------------|
-| `--scan TYPE` | Resource type to scan (`s3`, `ebs`, `rds`, `amis`, `sg`, `ecr`, `api`, `cloudfront`, `lambda`, `eip`, `rds-instances`, `elb`, `elasticsearch`, or `all`) |
-| `--region REGION` | AWS region to scan (e.g., `us-east-1`, `eu-west-1`) |
-| `--output FILE` | Save findings to JSON file |
-| `--html-report FILE` | Generate HTML report |
-| `--notify` | Send notifications for findings |
-| `--slack-webhook URL` | Slack webhook URL for notifications |
-| `--teams-webhook URL` | Microsoft Teams webhook URL for notifications |
-| `--remediate` | Automatically fix issues (use with caution) |
-| `--verbose` | Show detailed progress information |
-| `--no-color` | Disable colored output |
+| Option | Description | Example |
+|--------|-------------|---------|
+| `--scan TYPE` | Resource type to scan | `--scan s3` |
+| `--region REGION` | AWS region to scan | `--region us-east-1` |
+| `--output FILE` | Save findings to JSON file | `--output findings.json` |
+| `--html-report FILE` | Generate HTML report | `--html-report report.html` |
+| `--risk-level LEVEL` | Filter by minimum risk level | `--risk-level HIGH` |
+| `--notify` | Send notifications for findings | `--notify` |
+| `--slack-webhook URL` | Slack webhook URL | `--slack-webhook https://hooks.slack.com/...` |
+| `--teams-webhook URL` | Microsoft Teams webhook URL | `--teams-webhook https://outlook.office.com/...` |
+| `--remediate` | Automatically fix issues | `--remediate` |
+| `--verbose` | Show detailed progress | `--verbose` |
+| `--no-color` | Disable colored output | `--no-color` |
+
+### Available Scan Types
+
+| Scan Type | Description | Command |
+|-----------|-------------|---------|
+| `all` | All resource types (default) | `--scan all` |
+| `s3` | S3 buckets | `--scan s3` |
+| `ebs` | EBS snapshots | `--scan ebs` |
+| `rds` | RDS snapshots | `--scan rds` |
+| `amis` | Amazon Machine Images | `--scan amis` |
+| `sg` | Security Groups | `--scan sg` |
+| `ecr` | ECR repositories | `--scan ecr` |
+| `api` | API Gateway endpoints | `--scan api` |
+| `cloudfront` | CloudFront distributions | `--scan cloudfront` |
+| `lambda` | Lambda functions | `--scan lambda` |
+| `eip` | Elastic IPs | `--scan eip` |
+| `rds-instances` | RDS instances | `--scan rds-instances` |
+| `elb` | Elastic Load Balancers | `--scan elb` |
+| `elasticsearch` | Elasticsearch domains | `--scan elasticsearch` |
+| `iam` | IAM users and access keys | `--scan iam` |
+
+### Risk Levels
+
+| Level | Description |
+|-------|-------------|
+| `LOW` | Minor security concerns that should be addressed |
+| `MEDIUM` | Important security issues that need attention |
+| `HIGH` | Serious security vulnerabilities requiring prompt action |
+| `CRITICAL` | Severe security risks that need immediate remediation |
 
 ## 📊 HTML Reports
 
@@ -126,7 +168,8 @@ aws-exposure-monitor/
 │   ├── eip.py             # Elastic IP scanner
 │   ├── rds_instances.py   # RDS instance scanner
 │   ├── elb.py             # Load balancer scanner
-│   └── elasticsearch.py   # Elasticsearch scanner
+│   ├── elasticsearch.py   # Elasticsearch scanner
+│   └── iam.py             # IAM user and access key scanner
 ├── notifier/              # Notification modules (work in progress)
 │   ├── slack.py           # Slack notifications
 │   └── teams.py           # Microsoft Teams notifications
@@ -147,6 +190,53 @@ aws-exposure-monitor/
 - For remediation, it requires write access to modify resources
 - Use a dedicated IAM role with least privilege
 - Store webhook URLs securely (e.g., AWS Secrets Manager)
+- Run the tool from a secure environment with proper access controls
+
+### Required IAM Permissions
+
+For read-only scanning:
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetBucketAcl",
+                "s3:GetBucketPolicy",
+                "s3:GetBucketPublicAccessBlock",
+                "s3:GetBucketEncryption",
+                "s3:GetBucketVersioning",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeSnapshots",
+                "ec2:DescribeImages",
+                "ec2:DescribeAddresses",
+                "rds:DescribeDBSnapshots",
+                "rds:DescribeDBInstances",
+                "rds:DescribeDBClusters",
+                "ecr:DescribeRepositories",
+                "ecr:GetRepositoryPolicy",
+                "apigateway:GET",
+                "lambda:ListFunctions",
+                "lambda:GetPolicy",
+                "cloudfront:ListDistributions",
+                "elasticloadbalancing:DescribeLoadBalancers",
+                "elasticloadbalancing:DescribeListeners",
+                "es:ListDomainNames",
+                "es:DescribeElasticsearchDomain",
+                "iam:ListUsers",
+                "iam:GetLoginProfile",
+                "iam:ListMFADevices",
+                "iam:ListAccessKeys",
+                "iam:GetAccessKeyLastUsed"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+```
+
+For remediation capabilities, additional permissions are required.
 
 ## 🔄 Continuous Monitoring
 
@@ -155,6 +245,27 @@ For ongoing security monitoring:
 1. Deploy as an AWS Lambda function with scheduled triggers
 2. Set up CloudWatch Events to trigger scans on resource creation
 3. Integrate with AWS Security Hub for centralized findings
+4. Configure notifications to alert security teams of new issues
+5. Implement automated remediation for critical findings
+
+### Example CloudWatch Events Rule
+
+```json
+{
+  "source": ["aws.s3", "aws.ec2", "aws.rds"],
+  "detail-type": ["AWS API Call via CloudTrail"],
+  "detail": {
+    "eventSource": ["s3.amazonaws.com", "ec2.amazonaws.com", "rds.amazonaws.com"],
+    "eventName": [
+      "CreateBucket", 
+      "PutBucketPolicy", 
+      "CreateSecurityGroup", 
+      "AuthorizeSecurityGroupIngress",
+      "CreateDBInstance"
+    ]
+  }
+}
+```
 
 ## 📝 License
 
@@ -169,6 +280,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - **Scanner Modules**: Complete and fully functional
 - **HTML Reporting**: Complete and fully functional
 - **Console Output**: Complete with colored formatting
+- **Risk Level Filtering**: Complete and fully functional
 - **Notification Modules**: Work in progress
 - **Remediation Modules**: Work in progress
 

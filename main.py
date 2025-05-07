@@ -49,6 +49,11 @@ try:
 except ImportError:
     scan_elasticsearch_domains = None
 
+try:
+    from scanner.iam import scan_iam_users
+except ImportError:
+    scan_iam_users = None
+
 # Import notifier modules
 from notifier.slack import SlackNotifier
 try:
@@ -78,7 +83,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='AWS Public Resource Exposure Monitor')
     
     parser.add_argument('--scan', choices=['all', 's3', 'ebs', 'rds', 'amis', 'sg', 'ecr', 'api', 
-                                          'cloudfront', 'lambda', 'eip', 'rds-instances', 'elb', 'elasticsearch'], 
+                                          'cloudfront', 'lambda', 'eip', 'rds-instances', 'elb', 
+                                          'elasticsearch', 'iam'], 
                         default='all', help='Resource type to scan')
     
     parser.add_argument('--region', 
@@ -108,6 +114,9 @@ def parse_args():
     parser.add_argument('--no-color', action='store_true',
                         help='Disable colored output')
     
+    parser.add_argument('--risk-level', choices=['LOW', 'MEDIUM', 'HIGH', 'CRITICAL', 'ALL'],
+                        default='ALL', help='Minimum risk level to report')
+    
     return parser.parse_args()
 
 
@@ -128,6 +137,10 @@ def main():
         print(f"Scanning region: {colorize(args.region, ConsoleColors.BOLD_CYAN)}")
     else:
         print("Scanning all available regions")
+    
+    # Show risk level filter
+    if args.risk_level != 'ALL':
+        print(f"Filtering for {colorize(args.risk_level, ConsoleColors.BOLD_CYAN)} or higher risk findings")
     
     # Collect findings
     all_findings = []
@@ -248,6 +261,26 @@ def main():
                 print(f"Found {colorize(str(len(es_findings)), ConsoleColors.BOLD_WHITE)} Elasticsearch domain issues")
         else:
             print("Elasticsearch scanner module not available")
+    
+    if args.scan in ['all', 'iam']:
+        print_subheader("[SCAN] IAM Users and Access Keys")
+        if scan_iam_users:
+            iam_findings = scan_iam_users(region=args.region)
+            all_findings.extend(iam_findings)
+            if iam_findings:
+                print(f"Found {colorize(str(len(iam_findings)), ConsoleColors.BOLD_WHITE)} IAM security issues")
+        else:
+            print("IAM scanner module not available")
+    
+    # Filter findings by risk level if specified
+    if args.risk_level != 'ALL':
+        risk_levels = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+        min_risk_index = risk_levels.index(args.risk_level)
+        filtered_findings = [f for f in all_findings if f.get('Risk') in risk_levels[min_risk_index:]]
+        
+        if len(filtered_findings) != len(all_findings):
+            print(f"\nFiltered {len(all_findings) - len(filtered_findings)} findings below {args.risk_level} risk level")
+            all_findings = filtered_findings
     
     # Print summary
     print_summary(all_findings)
