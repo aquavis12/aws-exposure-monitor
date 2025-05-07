@@ -76,20 +76,14 @@ python main.py --scan s3
 # Scan a specific region
 python main.py --region us-east-1
 
-# Scan S3 buckets in a specific region
+# Scan resources in a specific region
 python main.py --scan s3 --region us-east-1
-
-# Filter for HIGH and CRITICAL risk findings only
-python main.py --risk-level HIGH
 
 # Generate an HTML report
 python main.py --html-report report.html
 
 # Save findings to JSON
 python main.py --output findings.json
-
-# Scan IAM users for security issues
-python main.py --scan iam
 
 # Scan and attempt to remediate issues (use with caution)
 python main.py --remediate
@@ -103,7 +97,6 @@ python main.py --remediate
 | `--region REGION` | AWS region to scan | `--region us-east-1` |
 | `--output FILE` | Save findings to JSON file | `--output findings.json` |
 | `--html-report FILE` | Generate HTML report | `--html-report report.html` |
-| `--risk-level LEVEL` | Filter by minimum risk level | `--risk-level HIGH` |
 | `--notify` | Send notifications for findings | `--notify` |
 | `--slack-webhook URL` | Slack webhook URL | `--slack-webhook https://hooks.slack.com/...` |
 | `--teams-webhook URL` | Microsoft Teams webhook URL | `--teams-webhook https://outlook.office.com/...` |
@@ -149,7 +142,7 @@ The tool generates comprehensive HTML reports with:
 - Detailed tables of all findings with filtering
 - Specific remediation recommendations
 
-![HTML Report Example](https://via.placeholder.com/800x400?text=HTML+Report+Example)
+![HTML Report Example](file:///C:/Users/racha/Desktop/aws-exposure-monitor/report.html)
 
 ## 📁 Project Structure
 

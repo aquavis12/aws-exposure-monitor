@@ -19,3 +19,4 @@ scanner/__pycache__/elasticsearch.cpython-311.pyc
 scanner/__pycache__/ecr.cpython-311.pyc
 scanner/__pycache__/lambda_scanner.cpython-311.pyc
 report.html
+scanner/__pycache__/iam.cpython-311.pyc

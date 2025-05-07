@@ -5,41 +5,57 @@ import boto3
 from botocore.exceptions import ClientError
 
 
-def scan_elasticsearch_domains():
+def scan_elasticsearch_domains(region=None):
     """
     Scan Elasticsearch domains for public access and security issues
-    Returns a list of dictionaries containing vulnerable resources
+    
+    Args:
+        region (str, optional): AWS region to scan. If None, scan all regions.
+    
+    Returns:
+        list: List of dictionaries containing vulnerable resources
     """
     findings = []
     
     print("Starting Elasticsearch domain scan...")
     
     try:
-        # Get all regions
+        # Get regions to scan
         ec2_client = boto3.client('ec2')
-        regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-        print(f"Scanning {len(regions)} regions")
+        if region:
+            regions = [region]
+            print(f"Scanning region: {region}")
+        else:
+            regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
+            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_domain_count = 0
         
-        for region in regions:
+        for current_region in regions:
             region_count += 1
-            print(f"[{region_count}/{len(regions)}] Scanning region: {region}")
-            
+            if len(regions) > 1:
+                print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
+            else:
+                print(f"Scanning region: {current_region}")
+                
             try:
-                es_client = boto3.client('es', region_name=region)
+                es_client = boto3.client('es', region_name=current_region)
                 
                 # List all Elasticsearch domains
                 domains = es_client.list_domain_names().get('DomainNames', [])
                 domain_count = len(domains)
-                total_domain_count += domain_count
                 
                 if domain_count > 0:
-                    print(f"  Scanning {domain_count} Elasticsearch domains in {region}")
+                    total_domain_count += domain_count
+                    print(f"  Found {domain_count} Elasticsearch domains in {current_region}")
                     
-                    for domain_info in domains:
+                    for i, domain_info in enumerate(domains, 1):
                         domain_name = domain_info.get('DomainName')
+                        
+                        # Print progress every 5 domains or for the last one
+                        if i % 5 == 0 or i == domain_count:
+                            print(f"  Progress: {i}/{domain_count}")
                         
                         # Get domain configuration
                         try:
@@ -65,7 +81,7 @@ def scan_elasticsearch_domains():
                                             'ResourceId': domain_name,
                                             'ResourceName': domain_name,
                                             'Endpoint': endpoint,
-                                            'Region': region,
+                                            'Region': current_region,
                                             'Risk': 'HIGH',
                                             'Issue': 'Elasticsearch domain is publicly accessible',
                                             'Recommendation': 'Move domain to VPC or restrict access policies'
@@ -80,7 +96,7 @@ def scan_elasticsearch_domains():
                                     'ResourceId': domain_name,
                                     'ResourceName': domain_name,
                                     'Endpoint': endpoint if not is_vpc else 'VPC Endpoint',
-                                    'Region': region,
+                                    'Region': current_region,
                                     'Risk': 'MEDIUM',
                                     'Issue': 'Elasticsearch domain does not have encryption at rest enabled',
                                     'Recommendation': 'Enable encryption at rest for the domain'
@@ -95,7 +111,7 @@ def scan_elasticsearch_domains():
                                     'ResourceId': domain_name,
                                     'ResourceName': domain_name,
                                     'Endpoint': endpoint if not is_vpc else 'VPC Endpoint',
-                                    'Region': region,
+                                    'Region': current_region,
                                     'Risk': 'MEDIUM',
                                     'Issue': 'Elasticsearch domain does not have node-to-node encryption enabled',
                                     'Recommendation': 'Enable node-to-node encryption for the domain'
@@ -110,7 +126,7 @@ def scan_elasticsearch_domains():
                                     'ResourceId': domain_name,
                                     'ResourceName': domain_name,
                                     'Endpoint': endpoint if not is_vpc else 'VPC Endpoint',
-                                    'Region': region,
+                                    'Region': current_region,
                                     'Risk': 'MEDIUM',
                                     'Issue': 'Elasticsearch domain does not enforce HTTPS',
                                     'Recommendation': 'Enable HTTPS enforcement for the domain'
@@ -125,7 +141,7 @@ def scan_elasticsearch_domains():
                                     'ResourceId': domain_name,
                                     'ResourceName': domain_name,
                                     'Endpoint': endpoint if not is_vpc else 'VPC Endpoint',
-                                    'Region': region,
+                                    'Region': current_region,
                                     'Risk': 'MEDIUM',
                                     'Issue': f'Elasticsearch domain uses outdated TLS policy: {tls_security_policy or "default"}',
                                     'Recommendation': 'Update to at least Policy-Min-TLS-1-2-2019-07'
@@ -137,9 +153,9 @@ def scan_elasticsearch_domains():
             
             except ClientError as e:
                 if 'AccessDeniedException' in str(e) or 'UnrecognizedClientException' in str(e):
-                    print(f"  Elasticsearch service not available or not accessible in {region}")
+                    print(f"  Elasticsearch service not available or not accessible in {current_region}")
                 else:
-                    print(f"  Error scanning Elasticsearch domains in {region}: {e}")
+                    print(f"  Error scanning Elasticsearch domains in {current_region}: {e}")
         
         if total_domain_count == 0:
             print("No Elasticsearch domains found.")
