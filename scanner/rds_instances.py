@@ -5,28 +5,41 @@ import boto3
 from botocore.exceptions import ClientError
 
 
-def scan_rds_instances():
+def scan_rds_instances(region=None):
     """
     Scan RDS instances for public accessibility
-    Returns a list of dictionaries containing vulnerable resources
+    
+    Args:
+        region (str, optional): AWS region to scan. If None, scan all regions.
+    
+    Returns:
+        list: List of dictionaries containing vulnerable resources
     """
     findings = []
     
     print("Starting RDS instance scan...")
     
     try:
-        # Get all regions
+        # Get regions to scan
         ec2_client = boto3.client('ec2')
-        regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-        print(f"Scanning {len(regions)} regions")
+        if region:
+            regions = [region]
+            print(f"Scanning region: {region}")
+        else:
+            regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
+            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_instance_count = 0
         
-        for region in regions:
+        for current_region in regions:
             region_count += 1
-            print(f"[{region_count}/{len(regions)}] Scanning region: {region}")
-            rds_client = boto3.client('rds', region_name=region)
+            if len(regions) > 1:
+                print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
+            else:
+                print(f"Scanning region: {current_region}")
+                
+            rds_client = boto3.client('rds', region_name=current_region)
             
             try:
                 # Get all RDS instances
@@ -37,10 +50,10 @@ def scan_rds_instances():
                     instances.extend(page.get('DBInstances', []))
                 
                 instance_count = len(instances)
-                total_instance_count += instance_count
                 
                 if instance_count > 0:
-                    print(f"  Scanning {instance_count} RDS instances in {region}")
+                    total_instance_count += instance_count
+                    print(f"  Found {instance_count} RDS instances in {current_region}")
                     
                     for i, instance in enumerate(instances, 1):
                         instance_id = instance.get('DBInstanceIdentifier')
@@ -61,7 +74,7 @@ def scan_rds_instances():
                                 'ResourceName': instance_id,
                                 'Endpoint': endpoint,
                                 'Engine': engine,
-                                'Region': region,
+                                'Region': current_region,
                                 'Risk': 'HIGH',
                                 'Issue': 'RDS instance is publicly accessible',
                                 'Recommendation': 'Disable public accessibility and use private subnets with VPC endpoints'
@@ -76,7 +89,7 @@ def scan_rds_instances():
                                 'ResourceName': instance_id,
                                 'Endpoint': endpoint,
                                 'Engine': engine,
-                                'Region': region,
+                                'Region': current_region,
                                 'Risk': 'MEDIUM',
                                 'Issue': 'RDS instance storage is not encrypted',
                                 'Recommendation': 'Enable storage encryption for the RDS instance'
@@ -91,7 +104,7 @@ def scan_rds_instances():
                                 'ResourceName': instance_id,
                                 'Endpoint': endpoint,
                                 'Engine': engine,
-                                'Region': region,
+                                'Region': current_region,
                                 'Risk': 'LOW',
                                 'Issue': 'RDS instance does not have enhanced monitoring enabled',
                                 'Recommendation': 'Enable enhanced monitoring for better visibility'
@@ -108,7 +121,7 @@ def scan_rds_instances():
                 cluster_count = len(clusters)
                 
                 if cluster_count > 0:
-                    print(f"  Scanning {cluster_count} Aurora clusters in {region}")
+                    print(f"  Found {cluster_count} Aurora clusters in {current_region}")
                     
                     for i, cluster in enumerate(clusters, 1):
                         cluster_id = cluster.get('DBClusterIdentifier')
@@ -116,6 +129,10 @@ def scan_rds_instances():
                         endpoint = cluster.get('Endpoint', 'Unknown')
                         publicly_accessible = False
                         storage_encrypted = cluster.get('StorageEncrypted', False)
+                        
+                        # Print progress every 5 clusters or for the last one
+                        if i % 5 == 0 or i == cluster_count:
+                            print(f"  Progress: {i}/{cluster_count} clusters")
                         
                         # Check if any instance in the cluster is publicly accessible
                         for instance in cluster.get('DBClusterMembers', []):
@@ -136,7 +153,7 @@ def scan_rds_instances():
                                 'ResourceName': cluster_id,
                                 'Endpoint': endpoint,
                                 'Engine': engine,
-                                'Region': region,
+                                'Region': current_region,
                                 'Risk': 'HIGH',
                                 'Issue': 'Aurora cluster has publicly accessible instances',
                                 'Recommendation': 'Disable public accessibility for all instances in the cluster'
@@ -151,7 +168,7 @@ def scan_rds_instances():
                                 'ResourceName': cluster_id,
                                 'Endpoint': endpoint,
                                 'Engine': engine,
-                                'Region': region,
+                                'Region': current_region,
                                 'Risk': 'MEDIUM',
                                 'Issue': 'Aurora cluster storage is not encrypted',
                                 'Recommendation': 'Enable storage encryption for the Aurora cluster'
@@ -159,7 +176,7 @@ def scan_rds_instances():
                             print(f"    [!] FINDING: Aurora cluster {cluster_id} storage is not encrypted - MEDIUM risk")
             
             except ClientError as e:
-                print(f"  Error scanning RDS instances in {region}: {e}")
+                print(f"  Error scanning RDS instances in {current_region}: {e}")
         
         if total_instance_count == 0:
             print("No RDS instances found.")

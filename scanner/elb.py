@@ -5,42 +5,58 @@ import boto3
 from botocore.exceptions import ClientError
 
 
-def scan_load_balancers():
+def scan_load_balancers(region=None):
     """
     Scan Elastic Load Balancers for public access and security issues
-    Returns a list of dictionaries containing vulnerable resources
+    
+    Args:
+        region (str, optional): AWS region to scan. If None, scan all regions.
+    
+    Returns:
+        list: List of dictionaries containing vulnerable resources
     """
     findings = []
     
     print("Starting Elastic Load Balancer scan...")
     
     try:
-        # Get all regions
+        # Get regions to scan
         ec2_client = boto3.client('ec2')
-        regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-        print(f"Scanning {len(regions)} regions")
+        if region:
+            regions = [region]
+            print(f"Scanning region: {region}")
+        else:
+            regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
+            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_elb_count = 0
         
-        for region in regions:
+        for current_region in regions:
             region_count += 1
-            print(f"[{region_count}/{len(regions)}] Scanning region: {region}")
-            
+            if len(regions) > 1:
+                print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
+            else:
+                print(f"Scanning region: {current_region}")
+                
             # Scan Classic Load Balancers
             try:
-                elb_client = boto3.client('elb', region_name=region)
+                elb_client = boto3.client('elb', region_name=current_region)
                 classic_lbs = elb_client.describe_load_balancers().get('LoadBalancerDescriptions', [])
                 classic_count = len(classic_lbs)
-                total_elb_count += classic_count
                 
                 if classic_count > 0:
-                    print(f"  Scanning {classic_count} Classic Load Balancers in {region}")
+                    total_elb_count += classic_count
+                    print(f"  Found {classic_count} Classic Load Balancers in {current_region}")
                     
-                    for lb in classic_lbs:
+                    for i, lb in enumerate(classic_lbs, 1):
                         lb_name = lb.get('LoadBalancerName')
                         dns_name = lb.get('DNSName', 'Unknown')
                         scheme = lb.get('Scheme', 'Unknown')
+                        
+                        # Print progress every 5 LBs or for the last one
+                        if i % 5 == 0 or i == classic_count:
+                            print(f"  Progress: {i}/{classic_count} Classic LBs")
                         
                         # Check if load balancer is internet-facing
                         if scheme == 'internet-facing':
@@ -74,7 +90,7 @@ def scan_load_balancers():
                                     'ResourceName': lb_name,
                                     'DNSName': dns_name,
                                     'Scheme': scheme,
-                                    'Region': region,
+                                    'Region': current_region,
                                     'Risk': 'HIGH',
                                     'Issue': 'Internet-facing Classic Load Balancer uses outdated SSL/TLS protocols',
                                     'Recommendation': 'Update SSL policy to use only TLSv1.2 or later'
@@ -89,7 +105,7 @@ def scan_load_balancers():
                                     'ResourceName': lb_name,
                                     'DNSName': dns_name,
                                     'Scheme': scheme,
-                                    'Region': region,
+                                    'Region': current_region,
                                     'Risk': 'MEDIUM',
                                     'Issue': 'Internet-facing Classic Load Balancer does not have access logs enabled',
                                     'Recommendation': 'Enable access logs to monitor traffic'
@@ -97,24 +113,28 @@ def scan_load_balancers():
                                 print(f"    [!] FINDING: Classic LB {lb_name} has no access logs enabled - MEDIUM risk")
             
             except ClientError as e:
-                print(f"  Error scanning Classic Load Balancers in {region}: {e}")
+                print(f"  Error scanning Classic Load Balancers in {current_region}: {e}")
             
             # Scan Application and Network Load Balancers
             try:
-                elbv2_client = boto3.client('elbv2', region_name=region)
+                elbv2_client = boto3.client('elbv2', region_name=current_region)
                 v2_lbs = elbv2_client.describe_load_balancers().get('LoadBalancers', [])
                 v2_count = len(v2_lbs)
-                total_elb_count += v2_count
                 
                 if v2_count > 0:
-                    print(f"  Scanning {v2_count} Application/Network Load Balancers in {region}")
+                    total_elb_count += v2_count
+                    print(f"  Found {v2_count} Application/Network Load Balancers in {current_region}")
                     
-                    for lb in v2_lbs:
+                    for i, lb in enumerate(v2_lbs, 1):
                         lb_arn = lb.get('LoadBalancerArn')
                         lb_name = lb.get('LoadBalancerName')
                         dns_name = lb.get('DNSName', 'Unknown')
                         scheme = lb.get('Scheme', 'Unknown')
                         lb_type = lb.get('Type', 'Unknown')
+                        
+                        # Print progress every 5 LBs or for the last one
+                        if i % 5 == 0 or i == v2_count:
+                            print(f"  Progress: {i}/{v2_count} {lb_type} LBs")
                         
                         # Check if load balancer is internet-facing
                         if scheme == 'internet-facing':
@@ -141,7 +161,7 @@ def scan_load_balancers():
                                                     'ResourceName': lb_name,
                                                     'DNSName': dns_name,
                                                     'Scheme': scheme,
-                                                    'Region': region,
+                                                    'Region': current_region,
                                                     'Risk': 'MEDIUM',
                                                     'Issue': 'Internet-facing ALB has HTTP listener without HTTPS redirect',
                                                     'Recommendation': 'Configure HTTP to HTTPS redirect for all listeners'
@@ -150,7 +170,7 @@ def scan_load_balancers():
                                     
                                     # Check if WAF is enabled
                                     try:
-                                        wafv2_client = boto3.client('wafv2', region_name=region)
+                                        wafv2_client = boto3.client('wafv2', region_name=current_region)
                                         web_acls = wafv2_client.list_web_acls(Scope='REGIONAL').get('WebACLs', [])
                                         
                                         # Check if any WAF is associated with this ALB
@@ -173,7 +193,7 @@ def scan_load_balancers():
                                                 'ResourceName': lb_name,
                                                 'DNSName': dns_name,
                                                 'Scheme': scheme,
-                                                'Region': region,
+                                                'Region': current_region,
                                                 'Risk': 'MEDIUM',
                                                 'Issue': 'Internet-facing ALB does not have WAF enabled',
                                                 'Recommendation': 'Enable AWS WAF to protect against common web exploits'
@@ -197,7 +217,7 @@ def scan_load_balancers():
                                                     'ResourceName': lb_name,
                                                     'DNSName': dns_name,
                                                     'Scheme': scheme,
-                                                    'Region': region,
+                                                    'Region': current_region,
                                                     'Risk': 'HIGH',
                                                     'Issue': f'Internet-facing NLB exposes sensitive port {port}',
                                                     'Recommendation': 'Restrict access to this port or use a private NLB'
@@ -224,7 +244,7 @@ def scan_load_balancers():
                                         'ResourceName': lb_name,
                                         'DNSName': dns_name,
                                         'Scheme': scheme,
-                                        'Region': region,
+                                        'Region': current_region,
                                         'Risk': 'MEDIUM',
                                         'Issue': f'Internet-facing {lb_type.upper()} does not have access logs enabled',
                                         'Recommendation': 'Enable access logs to monitor traffic'
@@ -235,7 +255,7 @@ def scan_load_balancers():
                                 print(f"    Error checking attributes for {lb_name}: {e}")
             
             except ClientError as e:
-                print(f"  Error scanning Application/Network Load Balancers in {region}: {e}")
+                print(f"  Error scanning Application/Network Load Balancers in {current_region}: {e}")
         
         if total_elb_count == 0:
             print("No Elastic Load Balancers found.")

@@ -35,15 +35,15 @@ A powerful security tool that scans your AWS environment for publicly exposed re
 - **Interactive HTML Reports** with charts and visualizations
 - **JSON output** for integration with other tools
 - **Colored console output** for better readability
-- **Slack notifications** with detailed findings
-- **Microsoft Teams notifications** with adaptive cards
+- **Slack notifications** with detailed findings *(work in progress)*
+- **Microsoft Teams notifications** with adaptive cards *(work in progress)*
 
 ### 🛠️ Remediation Capabilities
 
-- Automatically fix S3 bucket permissions
-- Make snapshots private
-- Update security group rules
-- Restrict RDS instance public access
+- Automatically fix S3 bucket permissions *(work in progress)*
+- Make snapshots private *(work in progress)*
+- Update security group rules *(work in progress)*
+- Restrict RDS instance public access *(work in progress)*
 
 ## 🚀 Quick Start
 
@@ -72,6 +72,9 @@ python main.py --scan s3
 
 # Scan a specific region
 python main.py --region us-east-1
+
+# Scan S3 buckets in a specific region
+python main.py --scan s3 --region us-east-1
 
 # Generate an HTML report
 python main.py --html-report report.html
@@ -124,10 +127,10 @@ aws-exposure-monitor/
 │   ├── rds_instances.py   # RDS instance scanner
 │   ├── elb.py             # Load balancer scanner
 │   └── elasticsearch.py   # Elasticsearch scanner
-├── notifier/              # Notification modules
+├── notifier/              # Notification modules (work in progress)
 │   ├── slack.py           # Slack notifications
 │   └── teams.py           # Microsoft Teams notifications
-├── remediator/            # Remediation modules
+├── remediator/            # Remediation modules (work in progress)
 │   ├── s3.py              # S3 remediation
 │   └── ebs.py             # EBS snapshot remediation
 ├── reporter/              # Reporting modules
@@ -160,6 +163,14 @@ For ongoing security monitoring:
 ## 👥 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 🛠️ Development Status
+
+- **Scanner Modules**: Complete and fully functional
+- **HTML Reporting**: Complete and fully functional
+- **Console Output**: Complete with colored formatting
+- **Notification Modules**: Work in progress
+- **Remediation Modules**: Work in progress
 
 ---
 

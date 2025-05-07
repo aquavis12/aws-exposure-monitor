@@ -5,42 +5,59 @@ import boto3
 from botocore.exceptions import ClientError
 
 
-def scan_elastic_ips():
+def scan_elastic_ips(region=None):
     """
     Scan Elastic IPs for unused allocations or security issues
-    Returns a list of dictionaries containing vulnerable resources
+    
+    Args:
+        region (str, optional): AWS region to scan. If None, scan all regions.
+    
+    Returns:
+        list: List of dictionaries containing vulnerable resources
     """
     findings = []
     
     print("Starting Elastic IP scan...")
     
     try:
-        # Get all regions
+        # Get regions to scan
         ec2_client = boto3.client('ec2')
-        regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-        print(f"Scanning {len(regions)} regions")
+        if region:
+            regions = [region]
+            print(f"Scanning region: {region}")
+        else:
+            regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
+            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_eip_count = 0
         
-        for region in regions:
+        for current_region in regions:
             region_count += 1
-            print(f"[{region_count}/{len(regions)}] Scanning region: {region}")
-            regional_client = boto3.client('ec2', region_name=region)
+            if len(regions) > 1:
+                print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
+            else:
+                print(f"Scanning region: {current_region}")
+                
+            regional_client = boto3.client('ec2', region_name=current_region)
             
             try:
                 # Get all Elastic IPs
                 addresses = regional_client.describe_addresses()
                 eips = addresses.get('Addresses', [])
                 eip_count = len(eips)
-                total_eip_count += eip_count
                 
                 if eip_count > 0:
-                    print(f"  Scanning {eip_count} Elastic IPs in {region}")
+                    total_eip_count += eip_count
+                    print(f"  Found {eip_count} Elastic IPs in {current_region}")
                     
-                    for eip in eips:
+                    for i, eip in enumerate(eips, 1):
                         allocation_id = eip.get('AllocationId', 'Unknown')
                         public_ip = eip.get('PublicIp', 'Unknown')
+                        
+                        # Print progress every 10 EIPs or for the last one
+                        if i % 10 == 0 or i == eip_count:
+                            print(f"  Progress: {i}/{eip_count}")
                         
                         # Check if EIP is associated with a resource
                         if 'AssociationId' not in eip:
@@ -48,7 +65,7 @@ def scan_elastic_ips():
                                 'ResourceType': 'Elastic IP',
                                 'ResourceId': allocation_id,
                                 'ResourceName': public_ip,
-                                'Region': region,
+                                'Region': current_region,
                                 'Risk': 'LOW',
                                 'Issue': 'Elastic IP is not associated with any resource',
                                 'Recommendation': 'Associate the Elastic IP with a resource or release it to avoid charges'
@@ -89,7 +106,7 @@ def scan_elastic_ips():
                                                                             'ResourceType': 'Elastic IP with Vulnerable Instance',
                                                                             'ResourceId': public_ip,
                                                                             'ResourceName': f"{public_ip} (Instance: {instance_id})",
-                                                                            'Region': region,
+                                                                            'Region': current_region,
                                                                             'Risk': 'HIGH',
                                                                             'Issue': f'Elastic IP is attached to an instance with security group {sg_name} allowing public access to port {port}',
                                                                             'Recommendation': 'Restrict security group rules to specific IP ranges'
@@ -101,7 +118,7 @@ def scan_elastic_ips():
                                                                     'ResourceType': 'Elastic IP with Vulnerable Instance',
                                                                     'ResourceId': public_ip,
                                                                     'ResourceName': f"{public_ip} (Instance: {instance_id})",
-                                                                    'Region': region,
+                                                                    'Region': current_region,
                                                                     'Risk': 'CRITICAL',
                                                                     'Issue': f'Elastic IP is attached to an instance with security group {sg_name} allowing public access to ALL ports',
                                                                     'Recommendation': 'Restrict security group rules to specific ports and IP ranges'
@@ -111,7 +128,7 @@ def scan_elastic_ips():
                                 print(f"    Error checking instance {instance_id}: {e}")
             
             except ClientError as e:
-                print(f"  Error scanning Elastic IPs in {region}: {e}")
+                print(f"  Error scanning Elastic IPs in {current_region}: {e}")
         
         if total_eip_count == 0:
             print("No Elastic IPs found.")
