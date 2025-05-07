@@ -142,7 +142,7 @@ The tool generates comprehensive HTML reports with:
 - Detailed tables of all findings with filtering
 - Specific remediation recommendations
 
-![HTML Report Example](file:///C:/Users/racha/Desktop/aws-exposure-monitor/report.html)
+![HTML Report Example](https://htmlreportdemo2025.s3.us-east-1.amazonaws.com/report.html)
 
 ## 📁 Project Structure
 
