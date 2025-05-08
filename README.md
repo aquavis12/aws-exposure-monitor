@@ -26,7 +26,7 @@ A powerful security tool that scans your AWS environment for publicly exposed re
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/aws-exposure-monitor.git
+git clone https://github.com/aquavis12/aws-exposure-monitor.git
 cd aws-exposure-monitor
 
 # Install dependencies
