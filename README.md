@@ -30,7 +30,7 @@ A powerful security tool that scans your AWS environment for publicly exposed re
 | **Load Balancers** | Internet-facing LBs, HTTP without HTTPS redirect, outdated SSL/TLS policies |
 | **Elasticsearch** | Public access, encryption at rest, node-to-node encryption, HTTPS enforcement |
 | **IAM Users** | Inactive users (90+ days), old access keys (60+ days), missing MFA, admin privileges |
-| **EC2 Instances** | IMDSv1 usage (instead of IMDSv2), missing SSM agent, unencrypted volumes, public IPs |
+| **EC2 Instances** | IMDSv1 usage (instead of IMDSv2), missing SSM agent, unencrypted volumes, public IPs, stopped instances |
 | **Secrets & KMS** | Unused secrets (90+ days), pending deletions, disabled key rotation, permissive policies |
 | **CloudWatch Logs** | Missing encryption, indefinite retention, missing security metric filters |
 
@@ -70,11 +70,20 @@ aws configure
 ### Basic Usage
 
 ```bash
+# List all available scanners
+python main.py --list-scanners
+
 # Scan all resource types in all regions
 python main.py
 
 # Scan only S3 buckets 
 python main.py --scan s3
+
+# Scan multiple resource types (comma-separated, no spaces)
+python main.py --scan ec2,s3,iam
+
+# Scan a specific region
+python main.py --region us-east-1
 
 # Scan EC2 instances in us-east-1 region
 python main.py --scan ec2 --region us-east-1
@@ -84,9 +93,6 @@ python main.py --scan iam --risk-level HIGH --html-report report.html --region u
 
 # Scan Secrets Manager and KMS for security issues
 python main.py --scan secrets --region us-east-1
-
-# Scan CloudWatch Logs for security issues
-python main.py --scan cloudwatch --region us-east-1
 
 # Save findings to JSON
 python main.py --output findings.json
@@ -107,13 +113,15 @@ python main.py --output findings.json
 
 | Option | Description | Example |
 |--------|-------------|---------|
-| `--scan TYPE` | Resource type to scan | `--scan s3` |
+| `--scan TYPES` | Resource type(s) to scan (comma-separated) | `--scan s3,ec2,iam` |
 | `--region REGION` | AWS region to scan | `--region us-east-1` |
 | `--output FILE` | Save findings to JSON file | `--output findings.json` |
 | `--html-report FILE` | Generate HTML report | `--html-report report.html` |
 | `--risk-level LEVEL` | Filter by minimum risk level | `--risk-level HIGH` |
 | `--verbose` | Show detailed progress | `--verbose` |
 | `--no-color` | Disable colored output | `--no-color` |
+| `--list-scanners` | List all available scanners | `--list-scanners` |
+| `--notify` | Send notifications for findings | `--notify` |
 
 ### Available Scan Types
 
@@ -309,6 +317,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - **HTML Reporting**: Complete and fully functional
 - **Console Output**: Complete with colored formatting
 - **Risk Level Filtering**: Complete and fully functional
+- **Multiple Resource Scanning**: Complete and fully functional
 - **Notification Modules**: Work in progress
 - **Remediation Modules**: Work in progress
 
