@@ -92,9 +92,13 @@ python main.py --scan cloudwatch --region us-east-1
 python main.py --output findings.json
 ```
 
-## 🛡️ IAM Scan Output (2025-05-08)
+## 🛡️ Scan Outputs 
 
-![IAM Scan Output](image.png)
+![IAM Scan Output](/images/image.png)
+
+![Secrets and KMS Scan Output](/images/mage-1.png)
+
+![S3 Bucket Scan Output](/images/image-2.png)
 
 ## 📋 Command Line Options
 
