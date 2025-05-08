@@ -91,7 +91,9 @@ python main.py --output findings.json
 
 ```
 
-[IAM Scan](image.png)
+## 🛡️ IAM Scan Output (2025-05-08)
+
+![IAM Scan Output](images.png)
 
 ## 📋 Command Line Options
 
