@@ -80,7 +80,7 @@ python main.py --scan ec2 --region us-east-1
 
 # Scan IAM users, filter for HIGH risk issues, and generate HTML report
 python main.py --scan iam --risk-level HIGH --html-report report.html --region us-east-1
-![alt text](image.png)
+[alt text](image.png)
 
 # Scan Secrets Manager and KMS for security issues
 python main.py --scan secrets --region us-east-1
