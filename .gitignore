@@ -25,3 +25,13 @@ scanner/__pycache__/ec2.cpython-311.pyc
 
 scanner/__pycache__/secrets.cpython-311.pyc
 scanner/__pycache__/cw.cpython-311.pyc
+scanner/__pycache__/registry.cpython-311.pyc
+scanner/__pycache__/__init__.cpython-311.pyc
+scanner/__pycache__/cloudtrail.cpython-311.pyc
+scanner/__pycache__/config.cpython-311.pyc
+scanner/__pycache__/guardduty.cpython-311.pyc
+scanner/__pycache__/vpc.cpython-311.pyc
+scanner/__pycache__/sqs.cpython-311.pyc
+scanner/__pycache__/sns.cpython-311.pyc
+scanner/__pycache__/dynamodb.cpython-311.pyc
+reporter/__pycache__/security_score.cpython-311.pyc

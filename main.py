@@ -1,83 +1,42 @@
 """
 AWS Public Resource Exposure Monitor
 
-This tool scans AWS resources for public exposure and sends alerts.
+This tool scans AWS resources for public exposure and security issues.
 """
 import argparse
 import json
 import os
 import sys
 from datetime import datetime
+from textwrap import wrap
 
-# Import scanner modules
-from scanner.s3 import scan_s3_buckets
-from scanner.ebs import scan_ebs_snapshots
-from scanner.rds import scan_rds_snapshots
-from scanner.amis import scan_amis
-from scanner.sg import scan_security_groups
-from scanner.ecr import scan_ecr_repositories
-from scanner.api import scan_api_gateways
-
-# Import additional scanner modules if available
-try:
-    from scanner.cloudfront import scan_cloudfront_distributions
-except ImportError:
-    scan_cloudfront_distributions = None
-
-try:
-    from scanner.lambda_scanner import scan_lambda_functions
-except ImportError:
-    scan_lambda_functions = None
-
-try:
-    from scanner.eip import scan_elastic_ips
-except ImportError:
-    scan_elastic_ips = None
-
-try:
-    from scanner.rds_instances import scan_rds_instances
-except ImportError:
-    scan_rds_instances = None
-
-try:
-    from scanner.elb import scan_load_balancers
-except ImportError:
-    scan_load_balancers = None
-
-try:
-    from scanner.elasticsearch import scan_elasticsearch_domains
-except ImportError:
-    scan_elasticsearch_domains = None
-
-try:
-    from scanner.iam import scan_iam_users
-except ImportError:
-    scan_iam_users = None
-
-try:
-    from scanner.ec2 import scan_ec2_instances
-except ImportError:
-    scan_ec2_instances = None
-
-try:
-    from scanner.secrets import scan_secrets_and_keys
-except ImportError:
-    scan_secrets_and_keys = None
-
-try:
-    from scanner.cw import scan_cloudwatch_logs
-except ImportError:
-    scan_cloudwatch_logs = None
+# Import scanner registry
+from scanner.registry import (
+    get_available_scanners,
+    get_scanner_function,
+    get_scanner_name,
+    get_scanner_ids,
+    get_scanner_description,
+    is_scanner_available
+)
 
 # Import notifier modules
-from notifier.slack import SlackNotifier
+try:
+    from notifier.slack import SlackNotifier
+except ImportError:
+    SlackNotifier = None
+
 try:
     from notifier.teams import TeamsNotifier
 except ImportError:
-    from notifier.slack import TeamsNotifier
+    TeamsNotifier = None
 
 # Import remediator modules
-from remediator.s3 import remediate_s3_findings
+try:
+    from remediator.s3 import remediate_s3_findings
+except ImportError:
+    remediate_s3_findings = None
+
 try:
     from remediator.ebs import remediate_ebs_findings
 except ImportError:
@@ -91,78 +50,6 @@ except ImportError:
     def generate_html_report(findings, output_path=None):
         print("HTML report generation requires Jinja2. Install with: pip install jinja2")
         return None
-
-# Define all available scanners
-AVAILABLE_SCANNERS = {
-    's3': {
-        'name': 'S3 Buckets',
-        'function': scan_s3_buckets
-    },
-    'ebs': {
-        'name': 'EBS Snapshots',
-        'function': scan_ebs_snapshots
-    },
-    'rds': {
-        'name': 'RDS Snapshots',
-        'function': scan_rds_snapshots
-    },
-    'amis': {
-        'name': 'AMIs',
-        'function': scan_amis
-    },
-    'sg': {
-        'name': 'Security Groups',
-        'function': scan_security_groups
-    },
-    'ecr': {
-        'name': 'ECR Repositories',
-        'function': scan_ecr_repositories
-    },
-    'api': {
-        'name': 'API Gateway Endpoints',
-        'function': scan_api_gateways
-    },
-    'cloudfront': {
-        'name': 'CloudFront Distributions',
-        'function': scan_cloudfront_distributions
-    },
-    'lambda': {
-        'name': 'Lambda Functions',
-        'function': scan_lambda_functions
-    },
-    'eip': {
-        'name': 'Elastic IPs',
-        'function': scan_elastic_ips
-    },
-    'rds-instances': {
-        'name': 'RDS Instances',
-        'function': scan_rds_instances
-    },
-    'elb': {
-        'name': 'Elastic Load Balancers',
-        'function': scan_load_balancers
-    },
-    'elasticsearch': {
-        'name': 'Elasticsearch Domains',
-        'function': scan_elasticsearch_domains
-    },
-    'iam': {
-        'name': 'IAM Users and Access Keys',
-        'function': scan_iam_users
-    },
-    'ec2': {
-        'name': 'EC2 Instances',
-        'function': scan_ec2_instances
-    },
-    'secrets': {
-        'name': 'Secrets Manager and KMS',
-        'function': scan_secrets_and_keys
-    },
-    'cloudwatch': {
-        'name': 'CloudWatch Logs',
-        'function': scan_cloudwatch_logs
-    }
-}
 
 
 def parse_args():
@@ -205,15 +92,14 @@ def parse_args():
     parser.add_argument('--list-scanners', action='store_true',
                         help='List all available scanners')
     
+    parser.add_argument('--category', choices=['exposure', 'compliance', 'cost', 'all'],
+                        default='all', help='Category of issues to scan for')
+    
     args = parser.parse_args()
     
     # Handle --list-scanners option
     if args.list_scanners:
-        print_header("Available Scanners")
-        for key, scanner in sorted(AVAILABLE_SCANNERS.items()):
-            status = "Available" if scanner['function'] else "Not Available"
-            status_color = ConsoleColors.GREEN if scanner['function'] else ConsoleColors.RED
-            print(f"{key.ljust(15)}: {scanner['name'].ljust(30)} [{colorize(status, status_color)}]")
+        list_available_scanners()
         sys.exit(0)
     
     # Default to 'all' if no scan type is specified
@@ -221,6 +107,91 @@ def parse_args():
         args.scan = 'all'
     
     return args
+
+
+def print_ascii_art():
+    """Print ASCII art banner for the tool"""
+    ascii_art = """
+  █████╗ ██╗    ██╗███████╗    ██████╗ ██╗   ██╗██████╗ ██╗     ██╗ ██████╗    ██████╗ ███████╗███████╗ ██████╗ ██╗   ██╗██████╗  ██████╗███████╗
+ ██╔══██╗██║    ██║██╔════╝    ██╔══██╗██║   ██║██╔══██╗██║     ██║██╔════╝    ██╔══██╗██╔════╝██╔════╝██╔═══██╗██║   ██║██╔══██╗██╔════╝██╔════╝
+ ███████║██║ █╗ ██║███████╗    ██████╔╝██║   ██║██████╔╝██║     ██║██║         ██████╔╝█████╗  ███████╗██║   ██║██║   ██║██████╔╝██║     █████╗  
+ ██╔══██║██║███╗██║╚════██║    ██╔═══╝ ██║   ██║██╔══██╗██║     ██║██║         ██╔══██╗██╔══╝  ╚════██║██║   ██║██║   ██║██╔══██╗██║     ██╔══╝  
+ ██║  ██║╚███╔███╔╝███████║    ██║     ╚██████╔╝██████╔╝███████╗██║╚██████╗    ██║  ██║███████╗███████║╚██████╔╝╚██████╔╝██║  ██║╚██████╗███████╗
+ ╚═╝  ╚═╝ ╚══╝╚══╝ ╚══════╝    ╚═╝      ╚═════╝ ╚═════╝ ╚══════╝╚═╝ ╚═════╝    ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝
+                                                                                                                                                  
+ ███████╗██╗  ██╗██████╗  ██████╗ ███████╗██╗   ██╗██████╗ ███████╗    ███╗   ███╗ ██████╗ ███╗   ██╗██╗████████╗ ██████╗ ██████╗ 
+ ██╔════╝╚██╗██╔╝██╔══██╗██╔═══██╗██╔════╝██║   ██║██╔══██╗██╔════╝    ████╗ ████║██╔═══██╗████╗  ██║██║╚══██╔══╝██╔═══██╗██╔══██╗
+ █████╗   ╚███╔╝ ██████╔╝██║   ██║███████╗██║   ██║██████╔╝█████╗      ██╔████╔██║██║   ██║██╔██╗ ██║██║   ██║   ██║   ██║██████╔╝
+ ██╔══╝   ██╔██╗ ██╔═══╝ ██║   ██║╚════██║██║   ██║██╔══██╗██╔══╝      ██║╚██╔╝██║██║   ██║██║╚██╗██║██║   ██║   ██║   ██║██╔══██╗
+ ███████╗██╔╝ ██╗██║     ╚██████╔╝███████║╚██████╔╝██║  ██║███████╗    ██║ ╚═╝ ██║╚██████╔╝██║ ╚████║██║   ██║   ╚██████╔╝██║  ██║
+ ╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝    ╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝
+
+    """
+    
+    print(colorize(ascii_art, ConsoleColors.BOLD_CYAN))
+    print(colorize("  Comprehensive AWS Security Scanner and Exposure Monitor", ConsoleColors.BOLD_WHITE))
+    print()
+
+
+def list_available_scanners():
+    """List all available scanners in a table format"""
+    print_ascii_art()
+    print_header("Available Scanners")
+    
+    scanners = get_available_scanners()
+    
+    # Calculate column widths
+    id_width = max(len(key) for key in scanners.keys()) + 2
+    name_width = max(len(scanner['name']) for scanner in scanners.values()) + 2
+    status_width = 12  # "Available" or "Not Available" + padding
+    
+    # Calculate terminal width for description wrapping
+    try:
+        terminal_width = os.get_terminal_size().columns
+    except (AttributeError, OSError):
+        terminal_width = 100
+    
+    desc_width = terminal_width - id_width - name_width - status_width - 4
+    
+    # Print table header
+    header = (
+        f"{'ID'.ljust(id_width)}"
+        f"{'Name'.ljust(name_width)}"
+        f"{'Status'.ljust(status_width)}"
+        f"Description"
+    )
+    print(colorize(header, ConsoleColors.BOLD_WHITE))
+    print(colorize("-" * terminal_width, ConsoleColors.BOLD_WHITE))
+    
+    # Print table rows
+    for key, scanner in sorted(scanners.items()):
+        status = "Available" if scanner['available'] else "Not Available"
+        status_color = ConsoleColors.GREEN if scanner['available'] else ConsoleColors.RED
+        description = scanner.get('description', '')
+        
+        # Wrap description text
+        if description:
+            wrapped_desc = wrap(description, width=desc_width)
+            first_line = wrapped_desc[0]
+            rest_lines = wrapped_desc[1:] if len(wrapped_desc) > 1 else []
+        else:
+            first_line = ""
+            rest_lines = []
+        
+        # Print first line with all columns
+        print(
+            f"{key.ljust(id_width)}"
+            f"{scanner['name'].ljust(name_width)}"
+            f"{colorize(status.ljust(status_width), status_color)}"
+            f"{first_line}"
+        )
+        
+        # Print remaining description lines with proper indentation
+        for line in rest_lines:
+            print(f"{' '.ljust(id_width + name_width + status_width)}{line}")
+        
+        # Add a blank line between entries for readability
+        print()
 
 
 def main():
@@ -233,7 +204,8 @@ def main():
             if not attr.startswith('__'):
                 setattr(ConsoleColors, attr, '')
     
-    print_header(f"AWS Public Resource Exposure Monitor - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print_ascii_art()
+    print_header(f"Scan started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     # Show region information
     if args.region:
@@ -248,15 +220,15 @@ def main():
     # Parse scan types
     scan_types = []
     if args.scan.lower() == 'all':
-        scan_types = list(AVAILABLE_SCANNERS.keys())
+        scan_types = get_scanner_ids()
     else:
         scan_types = [s.strip().lower() for s in args.scan.split(',')]
         
         # Validate scan types
-        invalid_types = [s for s in scan_types if s not in AVAILABLE_SCANNERS]
+        invalid_types = [s for s in scan_types if s not in get_scanner_ids()]
         if invalid_types:
             print(f"Error: Invalid scan type(s): {', '.join(invalid_types)}")
-            print(f"Available scan types: {', '.join(AVAILABLE_SCANNERS.keys())}")
+            print(f"Available scan types: {', '.join(get_scanner_ids())}")
             return 1
     
     # Collect findings
@@ -264,19 +236,21 @@ def main():
     
     # Scan resources based on arguments
     for scan_type in scan_types:
-        scanner = AVAILABLE_SCANNERS.get(scan_type)
-        if not scanner or not scanner['function']:
+        if not is_scanner_available(scan_type):
             print(f"Scanner for {scan_type} is not available, skipping...")
             continue
         
-        print_subheader(f"[SCAN] {scanner['name']}")
+        scanner_name = get_scanner_name(scan_type)
+        scanner_function = get_scanner_function(scan_type)
+        
+        print_subheader(f"[SCAN] {scanner_name}")
         try:
-            findings = scanner['function'](region=args.region)
+            findings = scanner_function(region=args.region)
             all_findings.extend(findings)
             if findings:
-                print(f"Found {colorize(str(len(findings)), ConsoleColors.BOLD_WHITE)} {scanner['name']} issues")
+                print(f"Found {colorize(str(len(findings)), ConsoleColors.BOLD_WHITE)} {scanner_name} issues")
         except Exception as e:
-            print(f"Error scanning {scanner['name']}: {colorize(str(e), ConsoleColors.BOLD_RED)}")
+            print(f"Error scanning {scanner_name}: {colorize(str(e), ConsoleColors.BOLD_RED)}")
     
     # Filter findings by risk level if specified
     if args.risk_level != 'ALL':
@@ -311,17 +285,21 @@ def main():
     
     # Send notifications if requested
     if args.notify:
-        if args.slack_webhook:
+        if args.slack_webhook and SlackNotifier:
             print_subheader("Sending Slack notifications...")
             slack_notifier = SlackNotifier(args.slack_webhook)
             sent_count = slack_notifier.send_alerts(all_findings)
             print(f"Sent {colorize(str(sent_count), ConsoleColors.BOLD_GREEN)} of {len(all_findings)} Slack alerts")
+        elif args.slack_webhook:
+            print("Slack notifier module not available")
         
-        if args.teams_webhook:
+        if args.teams_webhook and TeamsNotifier:
             print_subheader("Sending Microsoft Teams notifications...")
             teams_notifier = TeamsNotifier(args.teams_webhook)
             sent_count = teams_notifier.send_alerts(all_findings)
             print(f"Sent {colorize(str(sent_count), ConsoleColors.BOLD_GREEN)} of {len(all_findings)} Teams alerts")
+        elif args.teams_webhook:
+            print("Teams notifier module not available")
     
     # Remediate issues if requested
     if args.remediate:
@@ -329,22 +307,25 @@ def main():
         
         # Remediate S3 issues
         s3_findings = [f for f in all_findings if f.get('ResourceType') == 'S3 Bucket']
-        if s3_findings:
+        if s3_findings and remediate_s3_findings:
             print(f"Remediating {colorize(str(len(s3_findings)), ConsoleColors.BOLD_WHITE)} S3 bucket issues...")
             s3_results = remediate_s3_findings(s3_findings)
             
             success_count = sum(1 for r in s3_results if r.get('success', False))
             print(f"Successfully remediated {colorize(str(success_count), ConsoleColors.BOLD_GREEN)} of {len(s3_findings)} S3 bucket issues")
+        elif s3_findings:
+            print("S3 remediation module not available")
         
         # Remediate EBS issues if the module is available
-        if remediate_ebs_findings:
-            ebs_findings = [f for f in all_findings if f.get('ResourceType') == 'EBS Snapshot']
-            if ebs_findings:
-                print(f"Remediating {colorize(str(len(ebs_findings)), ConsoleColors.BOLD_WHITE)} EBS snapshot issues...")
-                ebs_results = remediate_ebs_findings(ebs_findings)
-                
-                success_count = sum(1 for r in ebs_results if r.get('success', False))
-                print(f"Successfully remediated {colorize(str(success_count), ConsoleColors.BOLD_GREEN)} of {len(ebs_findings)} EBS snapshot issues")
+        ebs_findings = [f for f in all_findings if f.get('ResourceType') == 'EBS Snapshot']
+        if ebs_findings and remediate_ebs_findings:
+            print(f"Remediating {colorize(str(len(ebs_findings)), ConsoleColors.BOLD_WHITE)} EBS snapshot issues...")
+            ebs_results = remediate_ebs_findings(ebs_findings)
+            
+            success_count = sum(1 for r in ebs_results if r.get('success', False))
+            print(f"Successfully remediated {colorize(str(success_count), ConsoleColors.BOLD_GREEN)} of {len(ebs_findings)} EBS snapshot issues")
+        elif ebs_findings:
+            print("EBS remediation module not available")
     
     print_header("Scan completed")
     

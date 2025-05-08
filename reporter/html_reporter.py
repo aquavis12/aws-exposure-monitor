@@ -5,6 +5,7 @@ import os
 import json
 from datetime import datetime
 from jinja2 import Template
+from reporter.security_score import calculate_security_score
 
 
 def generate_html_report(findings, output_path=None):
@@ -55,6 +56,9 @@ def generate_html_report(findings, output_path=None):
             regions[region] = 0
         regions[region] += 1
     
+    # Calculate security score
+    security_score = calculate_security_score(findings)
+    
     # Prepare data for the template
     template_data = {
         'report_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -62,7 +66,8 @@ def generate_html_report(findings, output_path=None):
         'resource_types': resource_types,
         'risk_levels': dict(sorted_risk_levels),
         'regions': regions,
-        'findings': findings
+        'findings': findings,
+        'security_score': security_score
     }
     
     # Load HTML template
@@ -72,7 +77,7 @@ def generate_html_report(findings, output_path=None):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AWS Security Scan Report</title>
+    <title>AWS Public Resource Exposure Monitor</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -90,6 +95,11 @@ def generate_html_report(findings, output_path=None):
             --border-color: #e0e0e0;
             --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             --radius: 8px;
+            --score-excellent: #4caf50;
+            --score-good: #8bc34a;
+            --score-fair: #ffeb3b;
+            --score-poor: #ff9800;
+            --score-critical: #f44336;
         }
         
         * {
@@ -384,6 +394,86 @@ def generate_html_report(findings, output_path=None):
             font-style: italic;
         }
         
+        .security-score-container {
+            background-color: var(--bg-white);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .security-score-title {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        }
+        
+        .security-score {
+            font-size: 72px;
+            font-weight: 700;
+            margin: 20px 0;
+        }
+        
+        .score-excellent {
+            color: var(--score-excellent);
+        }
+        
+        .score-good {
+            color: var(--score-good);
+        }
+        
+        .score-fair {
+            color: var(--score-fair);
+        }
+        
+        .score-poor {
+            color: var(--score-poor);
+        }
+        
+        .score-critical {
+            color: var(--score-critical);
+        }
+        
+        .score-label {
+            font-size: 24px;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+        
+        .score-description {
+            font-size: 16px;
+            color: var(--text-light);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .score-meter {
+            width: 100%;
+            height: 20px;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            margin: 20px 0;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .score-meter-fill {
+            height: 100%;
+            border-radius: 10px;
+            background: linear-gradient(90deg, var(--score-critical) 0%, var(--score-poor) 25%, var(--score-fair) 50%, var(--score-good) 75%, var(--score-excellent) 100%);
+            transition: width 1s ease-in-out;
+        }
+        
+        .score-marker {
+            position: absolute;
+            top: -10px;
+            width: 4px;
+            height: 40px;
+            background-color: var(--primary-color);
+            transform: translateX(-50%);
+        }
+        
         @media (max-width: 768px) {
             .charts-container {
                 grid-template-columns: 1fr;
@@ -412,7 +502,7 @@ def generate_html_report(findings, output_path=None):
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
                 </svg>
-                <h1>AWS Security Scan Report</h1>
+                <h1>AWS Public Resource Exposure Monitor</h1>
             </div>
             <div class="report-date">
                 Generated on: {{ report_date }}
@@ -421,6 +511,18 @@ def generate_html_report(findings, output_path=None):
     </header>
     
     <div class="container">
+        <!-- Security Score Section -->
+        <div class="security-score-container">
+            <div class="security-score-title">Security Score</div>
+            <div class="security-score {{ security_score.css_class }}">{{ security_score.score }}</div>
+            <div class="score-label">{{ security_score.label }}</div>
+            <div class="score-description">{{ security_score.description }}</div>
+            <div class="score-meter">
+                <div class="score-meter-fill" style="width: {{ security_score.score }}%"></div>
+                <div class="score-marker" style="left: {{ security_score.score }}%"></div>
+            </div>
+        </div>
+        
         <div class="summary-grid">
             <div class="summary-card card-total">
                 <h3>Total Findings</h3>
@@ -504,7 +606,7 @@ def generate_html_report(findings, output_path=None):
     
     <footer class="footer">
         <div class="container">
-            <p>AWS Exposure Monitor - Security Scan Report</p>
+            <p>AWS Public Resource Exposure Monitor - Security Scan Report</p>
             <p>Scan completed on {{ report_date }}</p>
         </div>
     </footer>
