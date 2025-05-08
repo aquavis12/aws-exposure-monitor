@@ -1,5 +1,5 @@
 """
-HTML Reporter Module - Generates HTML reports from findings
+HTML Reporter Module - Generates beautiful HTML reports from findings
 """
 import os
 import json
@@ -9,7 +9,7 @@ from jinja2 import Template
 
 def generate_html_report(findings, output_path=None):
     """
-    Generate an HTML report from findings
+    Generate a visually appealing HTML report from findings
     
     Args:
         findings (list): List of findings to include in the report
@@ -19,6 +19,7 @@ def generate_html_report(findings, output_path=None):
         str: Path to the generated HTML report
     """
     if not findings:
+        print("No findings to generate report")
         return None
     
     # Default output path if none provided
@@ -71,216 +72,498 @@ def generate_html_report(findings, output_path=None):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AWS Exposure Monitor Report</title>
+    <title>AWS Security Scan Report</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #232f3e;
+            --secondary-color: #ff9900;
+            --critical-color: #d13212;
+            --high-color: #ff9900;
+            --medium-color: #2b7489;
+            --low-color: #1e88e5;
+            --unknown-color: #757575;
+            --bg-light: #f9f9f9;
+            --bg-white: #ffffff;
+            --text-dark: #232f3e;
+            --text-light: #666666;
+            --border-color: #e0e0e0;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --radius: 8px;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Roboto', sans-serif;
             line-height: 1.6;
-            color: #333;
-            max-width: 1200px;
+            color: var(--text-dark);
+            background-color: var(--bg-light);
+            padding: 0;
+            margin: 0;
+        }
+        
+        .container {
+            max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
         }
-        h1, h2, h3 {
-            color: #0066cc;
-        }
-        .header {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            border-left: 5px solid #0066cc;
-        }
-        .summary {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
+        
+        header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #37475a 100%);
+            color: white;
+            padding: 30px 0;
             margin-bottom: 30px;
+            box-shadow: var(--shadow);
         }
+        
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .logo svg {
+            width: 40px;
+            height: 40px;
+            fill: var(--secondary-color);
+        }
+        
+        h1, h2, h3, h4 {
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+        
+        h1 {
+            font-size: 28px;
+            color: white;
+        }
+        
+        h2 {
+            font-size: 24px;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 10px;
+            margin-top: 40px;
+        }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
         .summary-card {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            flex: 1;
-            min-width: 200px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            background-color: var(--bg-white);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            transition: transform 0.3s ease;
         }
-        .risk-critical {
-            background-color: #ffebee;
-            border-left: 5px solid #d32f2f;
+        
+        .summary-card:hover {
+            transform: translateY(-5px);
         }
-        .risk-high {
-            background-color: #fff8e1;
-            border-left: 5px solid #ff9800;
+        
+        .summary-card h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
         }
-        .risk-medium {
-            background-color: #e8f5e9;
-            border-left: 5px solid #4caf50;
+        
+        .summary-card .count {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 10px;
         }
-        .risk-low {
-            background-color: #e3f2fd;
-            border-left: 5px solid #2196f3;
+        
+        .card-critical {
+            border-top: 4px solid var(--critical-color);
         }
+        
+        .card-high {
+            border-top: 4px solid var(--high-color);
+        }
+        
+        .card-medium {
+            border-top: 4px solid var(--medium-color);
+        }
+        
+        .card-low {
+            border-top: 4px solid var(--low-color);
+        }
+        
+        .card-total {
+            border-top: 4px solid var(--secondary-color);
+        }
+        
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .chart-card {
+            background-color: var(--bg-white);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+        }
+        
+        .chart-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+            text-align: center;
+        }
+        
+        .table-container {
+            background-color: var(--bg-white);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+            overflow-x: auto;
+        }
+        
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 30px;
         }
-        th, td {
+        
+        th {
+            background-color: var(--primary-color);
+            color: white;
             padding: 12px 15px;
             text-align: left;
-            border-bottom: 1px solid #ddd;
+            font-weight: 500;
         }
-        th {
-            background-color: #f2f2f2;
-            font-weight: bold;
+        
+        th:first-child {
+            border-top-left-radius: 6px;
         }
+        
+        th:last-child {
+            border-top-right-radius: 6px;
+        }
+        
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        tr:nth-child(even) {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+        
         tr:hover {
-            background-color: #f5f5f5;
+            background-color: rgba(255, 153, 0, 0.05);
         }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            color: white;
+            text-transform: uppercase;
+        }
+        
+        .badge-critical {
+            background-color: var(--critical-color);
+        }
+        
+        .badge-high {
+            background-color: var(--high-color);
+        }
+        
+        .badge-medium {
+            background-color: var(--medium-color);
+        }
+        
+        .badge-low {
+            background-color: var(--low-color);
+        }
+        
+        .badge-unknown {
+            background-color: var(--unknown-color);
+        }
+        
         .resource-section {
             margin-bottom: 40px;
         }
-        .badge {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-            color: white;
-        }
-        .badge-critical {
-            background-color: #d32f2f;
-        }
-        .badge-high {
-            background-color: #ff9800;
-        }
-        .badge-medium {
-            background-color: #4caf50;
-        }
-        .badge-low {
-            background-color: #2196f3;
-        }
-        .badge-unknown {
-            background-color: #9e9e9e;
-        }
-        .chart-container {
+        
+        .resource-header {
             display: flex;
-            gap: 20px;
-            margin-bottom: 30px;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
         }
-        .chart {
-            flex: 1;
-            min-width: 300px;
-            height: 300px;
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        
+        .resource-count {
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
         }
+        
         .footer {
-            margin-top: 50px;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px 0;
             text-align: center;
-            font-size: 12px;
-            color: #666;
+            margin-top: 50px;
+        }
+        
+        .footer p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .footer a {
+            color: var(--secondary-color);
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        .filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-button {
+            background-color: var(--bg-white);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .filter-button:hover, .filter-button.active {
+            background-color: var(--secondary-color);
+            color: white;
+            border-color: var(--secondary-color);
+        }
+        
+        .recommendation {
+            background-color: rgba(255, 153, 0, 0.1);
+            border-left: 3px solid var(--secondary-color);
+            padding: 10px 15px;
+            border-radius: 0 4px 4px 0;
+        }
+        
+        .no-findings {
+            padding: 20px;
+            text-align: center;
+            background-color: var(--bg-white);
+            border-radius: var(--radius);
+            margin-bottom: 30px;
+            box-shadow: var(--shadow);
+            color: var(--text-light);
+            font-style: italic;
+        }
+        
+        @media (max-width: 768px) {
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .summary-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+            
+            header .container {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .logo {
+                margin-bottom: 15px;
+                justify-content: center;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>AWS Exposure Monitor Report</h1>
-        <p>Generated on: {{ report_date }}</p>
-    </div>
-    
-    <div class="summary">
-        <div class="summary-card">
-            <h3>Total Findings</h3>
-            <p style="font-size: 24px; font-weight: bold;">{{ total_findings }}</p>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                </svg>
+                <h1>AWS Security Scan Report</h1>
+            </div>
+            <div class="report-date">
+                Generated on: {{ report_date }}
+            </div>
         </div>
-        {% for risk, items in risk_levels.items() %}
-        <div class="summary-card risk-{{ risk.lower() }}">
-            <h3>{{ risk }}</h3>
-            <p style="font-size: 24px; font-weight: bold;">{{ items|length }}</p>
+    </header>
+    
+    <div class="container">
+        <div class="summary-grid">
+            <div class="summary-card card-total">
+                <h3>Total Findings</h3>
+                <div class="count">{{ total_findings }}</div>
+            </div>
+            {% for risk, items in risk_levels.items() %}
+            <div class="summary-card card-{{ risk.lower() }}">
+                <h3>{{ risk }} Risk</h3>
+                <div class="count">{{ items|length }}</div>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
-    </div>
-    
-    <h2>Findings by Resource Type</h2>
-    <div class="chart-container">
-        <div class="chart">
-            <canvas id="resourceTypeChart"></canvas>
+        
+        <h2>Security Findings Overview</h2>
+        
+        <div class="charts-container">
+            <div class="chart-card">
+                <div class="chart-title">Findings by Resource Type</div>
+                <canvas id="resourceTypeChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Findings by Risk Level</div>
+                <canvas id="riskLevelChart"></canvas>
+            </div>
         </div>
-        <div class="chart">
-            <canvas id="riskLevelChart"></canvas>
+        
+        <div class="chart-card">
+            <div class="chart-title">Findings by AWS Region</div>
+            <canvas id="regionChart"></canvas>
+        </div>
+        
+        <h2>Detailed Findings</h2>
+        
+        <div class="filters">
+            <button class="filter-button active" data-filter="all">All</button>
+            {% for risk in risk_levels.keys() %}
+            <button class="filter-button" data-filter="{{ risk.lower() }}">{{ risk }}</button>
+            {% endfor %}
+        </div>
+        
+        <div id="resource-sections">
+            {% for resource_type, items in resource_types.items() %}
+            <div class="resource-section" data-resource-type="{{ resource_type }}">
+                <div class="resource-header">
+                    <h2>{{ resource_type }}</h2>
+                    <span class="resource-count">{{ items|length }} findings</span>
+                </div>
+                
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Resource ID</th>
+                                <th>Resource Name</th>
+                                <th>Region</th>
+                                <th>Risk</th>
+                                <th>Issue</th>
+                                <th>Recommendation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for finding in items %}
+                            <tr class="finding-row risk-{{ finding.Risk|lower }}">
+                                <td>{{ finding.ResourceId }}</td>
+                                <td>{{ finding.ResourceName if finding.ResourceName else finding.ResourceId }}</td>
+                                <td>{{ finding.Region }}</td>
+                                <td>
+                                    <span class="badge badge-{{ finding.Risk|lower }}">{{ finding.Risk }}</span>
+                                </td>
+                                <td>{{ finding.Issue }}</td>
+                                <td class="recommendation">{{ finding.Recommendation }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endfor %}
         </div>
     </div>
     
-    <h2>Findings by Region</h2>
-    <div class="chart">
-        <canvas id="regionChart"></canvas>
-    </div>
-    
-    {% for resource_type, items in resource_types.items() %}
-    <div class="resource-section">
-        <h2>{{ resource_type }} ({{ items|length }})</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Resource ID</th>
-                    <th>Resource Name</th>
-                    <th>Region</th>
-                    <th>Risk</th>
-                    <th>Issue</th>
-                    <th>Recommendation</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for finding in items %}
-                <tr>
-                    <td>{{ finding.ResourceId }}</td>
-                    <td>{{ finding.ResourceName if finding.ResourceName else finding.ResourceId }}</td>
-                    <td>{{ finding.Region }}</td>
-                    <td>
-                        <span class="badge badge-{{ finding.Risk|lower }}">{{ finding.Risk }}</span>
-                    </td>
-                    <td>{{ finding.Issue }}</td>
-                    <td>{{ finding.Recommendation }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% endfor %}
-    
-    <div class="footer">
-        <p>AWS Exposure Monitor - Scan completed on {{ report_date }}</p>
-    </div>
+    <footer class="footer">
+        <div class="container">
+            <p>AWS Exposure Monitor - Security Scan Report</p>
+            <p>Scan completed on {{ report_date }}</p>
+        </div>
+    </footer>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        // Set up color scheme
+        const colors = {
+            resourceTypes: [
+                '#FF9900', '#232F3E', '#1E88E5', '#00A1B0', '#EB5F07', 
+                '#7AA116', '#8C4FFF', '#FF5252', '#00C853', '#AA00FF',
+                '#0097A7', '#FF6D00', '#6200EA', '#2962FF', '#00BFA5'
+            ],
+            riskLevels: {
+                'CRITICAL': '#d13212',
+                'HIGH': '#ff9900',
+                'MEDIUM': '#2b7489',
+                'LOW': '#1e88e5',
+                'UNKNOWN': '#757575'
+            }
+        };
+
         // Resource Type Chart
         const resourceTypeCtx = document.getElementById('resourceTypeChart').getContext('2d');
-        const resourceTypeChart = new Chart(resourceTypeCtx, {
-            type: 'pie',
+        const resourceTypeLabels = [{% for resource_type, items in resource_types.items() %}'{{ resource_type }}',{% endfor %}];
+        const resourceTypeData = [{% for resource_type, items in resource_types.items() %}{{ items|length }},{% endfor %}];
+        
+        new Chart(resourceTypeCtx, {
+            type: 'doughnut',
             data: {
-                labels: [{% for resource_type, items in resource_types.items() %}'{{ resource_type }}',{% endfor %}],
+                labels: resourceTypeLabels,
                 datasets: [{
-                    data: [{% for resource_type, items in resource_types.items() %}{{ items|length }},{% endfor %}],
-                    backgroundColor: [
-                        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
-                        '#6f42c1', '#fd7e14', '#20c9a6', '#858796', '#5a5c69'
-                    ]
+                    data: resourceTypeData,
+                    backgroundColor: colors.resourceTypes.slice(0, resourceTypeLabels.length),
+                    borderWidth: 1,
+                    borderColor: '#ffffff'
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: true,
                 plugins: {
                     legend: {
                         position: 'right',
+                        labels: {
+                            boxWidth: 15,
+                            padding: 15
+                        }
                     },
-                    title: {
-                        display: true,
-                        text: 'Findings by Resource Type'
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = Math.round((value / total) * 100);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
                     }
                 }
             }
@@ -288,26 +571,42 @@ def generate_html_report(findings, output_path=None):
         
         // Risk Level Chart
         const riskLevelCtx = document.getElementById('riskLevelChart').getContext('2d');
-        const riskLevelChart = new Chart(riskLevelCtx, {
+        const riskLevelLabels = [{% for risk, items in risk_levels.items() %}'{{ risk }}',{% endfor %}];
+        const riskLevelData = [{% for risk, items in risk_levels.items() %}{{ items|length }},{% endfor %}];
+        const riskLevelColors = riskLevelLabels.map(label => colors.riskLevels[label] || '#757575');
+        
+        new Chart(riskLevelCtx, {
             type: 'pie',
             data: {
-                labels: [{% for risk, items in risk_levels.items() %}'{{ risk }}',{% endfor %}],
+                labels: riskLevelLabels,
                 datasets: [{
-                    data: [{% for risk, items in risk_levels.items() %}{{ items|length }},{% endfor %}],
-                    backgroundColor: [
-                        '#d32f2f', '#ff9800', '#4caf50', '#2196f3', '#9e9e9e'
-                    ]
+                    data: riskLevelData,
+                    backgroundColor: riskLevelColors,
+                    borderWidth: 1,
+                    borderColor: '#ffffff'
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: true,
                 plugins: {
                     legend: {
                         position: 'right',
+                        labels: {
+                            boxWidth: 15,
+                            padding: 15
+                        }
                     },
-                    title: {
-                        display: true,
-                        text: 'Findings by Risk Level'
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = Math.round((value / total) * 100);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
                     }
                 }
             }
@@ -315,25 +614,27 @@ def generate_html_report(findings, output_path=None):
         
         // Region Chart
         const regionCtx = document.getElementById('regionChart').getContext('2d');
-        const regionChart = new Chart(regionCtx, {
+        const regionLabels = [{% for region, count in regions.items() %}'{{ region }}',{% endfor %}];
+        const regionData = [{% for region, count in regions.items() %}{{ count }},{% endfor %}];
+        
+        new Chart(regionCtx, {
             type: 'bar',
             data: {
-                labels: [{% for region, count in regions.items() %}'{{ region }}',{% endfor %}],
+                labels: regionLabels,
                 datasets: [{
                     label: 'Findings',
-                    data: [{% for region, count in regions.items() %}{{ count }},{% endfor %}],
-                    backgroundColor: '#4e73df'
+                    data: regionData,
+                    backgroundColor: '#FF9900',
+                    borderColor: '#232F3E',
+                    borderWidth: 1
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: true,
                 plugins: {
                     legend: {
                         display: false
-                    },
-                    title: {
-                        display: true,
-                        text: 'Findings by Region'
                     }
                 },
                 scales: {
@@ -345,6 +646,74 @@ def generate_html_report(findings, output_path=None):
                     }
                 }
             }
+        });
+        
+        // Filter functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const filterButtons = document.querySelectorAll('.filter-button');
+            const findingRows = document.querySelectorAll('.finding-row');
+            const resourceSections = document.querySelectorAll('.resource-section');
+            
+            filterButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const filter = this.getAttribute('data-filter');
+                    
+                    // Update active button
+                    filterButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Filter rows
+                    findingRows.forEach(row => {
+                        if (filter === 'all') {
+                            row.style.display = '';
+                        } else {
+                            if (row.classList.contains(`risk-${filter}`)) {
+                                row.style.display = '';
+                            } else {
+                                row.style.display = 'none';
+                            }
+                        }
+                    });
+                    
+                    // Hide empty resource sections
+                    resourceSections.forEach(section => {
+                        const visibleRows = section.querySelectorAll('.finding-row[style="display: none;"]').length;
+                        const totalRows = section.querySelectorAll('.finding-row').length;
+                        
+                        if (visibleRows === totalRows) {
+                            section.style.display = 'none';
+                        } else {
+                            section.style.display = '';
+                            
+                            // Update the count in the resource header
+                            const visibleCount = totalRows - visibleRows;
+                            const countElement = section.querySelector('.resource-count');
+                            if (countElement) {
+                                countElement.textContent = `${visibleCount} findings`;
+                            }
+                        }
+                    });
+                    
+                    // Check if all sections are hidden
+                    const allSectionsHidden = Array.from(resourceSections).every(section => 
+                        section.style.display === 'none'
+                    );
+                    
+                    // Show a message if no findings match the filter
+                    let noFindingsMessage = document.getElementById('no-findings-message');
+                    if (allSectionsHidden) {
+                        if (!noFindingsMessage) {
+                            noFindingsMessage = document.createElement('div');
+                            noFindingsMessage.id = 'no-findings-message';
+                            noFindingsMessage.className = 'no-findings';
+                            noFindingsMessage.textContent = `No ${filter.toUpperCase()} risk findings to display`;
+                            document.getElementById('resource-sections').appendChild(noFindingsMessage);
+                        }
+                    } else if (noFindingsMessage) {
+                        noFindingsMessage.remove();
+                    }
+                });
+            });
         });
     </script>
 </body>
@@ -359,4 +728,5 @@ def generate_html_report(findings, output_path=None):
     with open(output_path, 'w') as f:
         f.write(html_content)
     
+    print(f"HTML report generated successfully: {output_path}")
     return output_path

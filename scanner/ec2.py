@@ -15,6 +15,7 @@ def scan_ec2_instances(region=None):
     - Public IP addresses
     - Missing security patches
     - Instances running for extended periods
+    - Stopped instances incurring unnecessary costs
     
     Args:
         region (str, optional): AWS region to scan. If None, scan all regions.
@@ -105,7 +106,48 @@ def scan_ec2_instances(region=None):
                         if i % 10 == 0 or i == instance_count:
                             print(f"  Progress: {i}/{instance_count}")
                         
-                        # Check if instance is using IMDSv2
+                        # Check for stopped instances
+                        if state == 'stopped':
+                            # Calculate how long the instance has been stopped (if we can determine it)
+                            stopped_days = None
+                            try:
+                                # Try to get state transition reason
+                                state_reason = instance.get('StateTransitionReason', '')
+                                if 'User initiated' in state_reason and '(' in state_reason and ')' in state_reason:
+                                    # Extract date from format like "User initiated (2023-05-15 12:34:56 GMT)"
+                                    date_str = state_reason.split('(')[1].split(')')[0].strip()
+                                    try:
+                                        stop_date = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S %Z')
+                                        stop_date = stop_date.replace(tzinfo=timezone.utc)
+                                        stopped_days = (current_time - stop_date).days
+                                    except (ValueError, TypeError):
+                                        pass
+                            except Exception:
+                                pass
+                            
+                            # If we couldn't determine stop date, use launch time as a fallback
+                            if not stopped_days and launch_time:
+                                stopped_days = (current_time - launch_time).days
+                            
+                            stopped_info = f" for {stopped_days} days" if stopped_days else ""
+                            
+                            findings.append({
+                                'ResourceType': 'EC2 Instance',
+                                'ResourceId': instance_id,
+                                'ResourceName': instance_name,
+                                'InstanceType': instance_type,
+                                'State': state,
+                                'Region': current_region,
+                                'Risk': 'MEDIUM',
+                                'Issue': f'Instance is in stopped state{stopped_info} but still incurring costs for EBS volumes',
+                                'Recommendation': 'Terminate unused instances or create AMI and terminate to save costs'
+                            })
+                            print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) is stopped{stopped_info} - MEDIUM risk")
+                            
+                            # Skip other checks for stopped instances
+                            continue
+                        
+                        # Check if instance is using IMDSv1
                         metadata_options = instance.get('MetadataOptions', {})
                         http_tokens = metadata_options.get('HttpTokens', 'optional')
                         http_endpoint = metadata_options.get('HttpEndpoint', 'disabled')
@@ -125,7 +167,7 @@ def scan_ec2_instances(region=None):
                             print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) is using IMDSv1 - HIGH risk")
                         
                         # Check if instance has SSM agent installed
-                        if instance_id not in ssm_instance_ids and state == 'running':
+                        if instance_id not in ssm_instance_ids:
                             findings.append({
                                 'ResourceType': 'EC2 Instance',
                                 'ResourceId': instance_id,
@@ -231,7 +273,7 @@ def scan_ec2_instances(region=None):
                             )
                             is_protected = termination_protection.get('DisableApiTermination', {}).get('Value', False)
                             
-                            if not is_protected and state == 'running':
+                            if not is_protected:
                                 findings.append({
                                     'ResourceType': 'EC2 Instance',
                                     'ResourceId': instance_id,
