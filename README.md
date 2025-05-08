@@ -74,16 +74,25 @@ python main.py
 # Scan only S3 buckets
 python main.py --scan s3
 
-# Scan EC2 instances in us-east-1 region
+# Scan a specific region
+python main.py --region us-east-1
+
+# Scan EC2 instances in a specific region
 python main.py --scan ec2 --region us-east-1
 
-# Scan IAM users, filter for HIGH risk issues, and generate HTML report
-python main.py --scan iam --risk-level HIGH --html-report report.html --region us-east-1
+# Filter for HIGH and CRITICAL risk findings only
+python main.py --risk-level HIGH
+
+# Generate an HTML report
+python main.py --html-report report.html
 
 # Save findings to JSON
 python main.py --output findings.json
 
-# Attempt to remediate issues (use with caution)
+# Scan IAM users for security issues
+python main.py --scan iam
+
+# Scan and attempt to remediate issues (use with caution : work in progress)
 python main.py --remediate
 ```
 
@@ -101,7 +110,7 @@ python main.py --remediate
 | `--teams-webhook URL` | Microsoft Teams webhook URL | `--teams-webhook https://outlook.office.com/...` |
 | `--remediate` | Automatically fix issues | `--remediate` |
 | `--verbose` | Show detailed progress | `--verbose` |
-| `--no-color` | Disable colored output | `--no-color` |
+
 
 ### Available Scan Types
 
@@ -142,7 +151,7 @@ The tool generates comprehensive HTML reports with:
 - Detailed tables of all findings with filtering
 - Specific remediation recommendations
 
-![HTML Report Example](https://via.placeholder.com/800x400?text=HTML+Report+Example)
+[HTML Report Example](https://htmlreportdemo2025.s3.us-east-1.amazonaws.com/report.html)
 
 ## 📁 Project Structure
 
@@ -189,6 +198,7 @@ aws-exposure-monitor/
 ### Required IAM Permissions
 
 For read-only scanning:
+
 ```json
 {
     "Version": "2012-10-17",
