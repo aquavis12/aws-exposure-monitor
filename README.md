@@ -94,10 +94,13 @@ python main.py --output findings.json
 
 ## 🛡️ Scan Outputs 
 
+*IAM SCAN*
 ![IAM Scan Output](/images/image.png)
 
-![Secrets and KMS Scan Output](/images/mage-1.png)
+*Secrets and KMS Scan*
+![Secrets and KMS Scan Output](/images/image-1.png)
 
+*S3 Bucket Scan*
 ![S3 Bucket Scan Output](/images/image-2.png)
 
 ## 📋 Command Line Options
