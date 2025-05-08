@@ -93,7 +93,7 @@ python main.py --output findings.json
 
 ## 🛡️ IAM Scan Output (2025-05-08)
 
-![IAM Scan Output](images.png)
+![IAM Scan Output](image.png)
 
 ## 📋 Command Line Options
 
