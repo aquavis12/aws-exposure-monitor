@@ -54,6 +54,11 @@ try:
 except ImportError:
     scan_iam_users = None
 
+try:
+    from scanner.ec2 import scan_ec2_instances
+except ImportError:
+    scan_ec2_instances = None
+
 # Import notifier modules
 from notifier.slack import SlackNotifier
 try:
@@ -84,7 +89,7 @@ def parse_args():
     
     parser.add_argument('--scan', choices=['all', 's3', 'ebs', 'rds', 'amis', 'sg', 'ecr', 'api', 
                                           'cloudfront', 'lambda', 'eip', 'rds-instances', 'elb', 
-                                          'elasticsearch', 'iam'], 
+                                          'elasticsearch', 'iam', 'ec2'], 
                         default='all', help='Resource type to scan')
     
     parser.add_argument('--region', 
@@ -271,6 +276,16 @@ def main():
                 print(f"Found {colorize(str(len(iam_findings)), ConsoleColors.BOLD_WHITE)} IAM security issues")
         else:
             print("IAM scanner module not available")
+    
+    if args.scan in ['all', 'ec2']:
+        print_subheader("[SCAN] EC2 Instances")
+        if scan_ec2_instances:
+            ec2_findings = scan_ec2_instances(region=args.region)
+            all_findings.extend(ec2_findings)
+            if ec2_findings:
+                print(f"Found {colorize(str(len(ec2_findings)), ConsoleColors.BOLD_WHITE)} EC2 security issues")
+        else:
+            print("EC2 scanner module not available")
     
     # Filter findings by risk level if specified
     if args.risk_level != 'ALL':

@@ -30,6 +30,7 @@ A powerful security tool that scans your AWS environment for publicly exposed re
 | **Load Balancers** | Internet-facing LBs, HTTP without HTTPS redirect, outdated SSL/TLS policies |
 | **Elasticsearch** | Public access, encryption at rest, node-to-node encryption, HTTPS enforcement |
 | **IAM Users** | Inactive users (90+ days), old access keys (60+ days), missing MFA, admin privileges |
+| **EC2 Instances** | IMDSv1 usage (instead of IMDSv2), missing SSM agent, unencrypted volumes, public IPs |
 
 ### 📊 Rich Reporting Options
 
@@ -73,19 +74,16 @@ python main.py
 # Scan only S3 buckets
 python main.py --scan s3
 
-# Scan a specific region
-python main.py --region us-east-1
+# Scan EC2 instances in us-east-1 region
+python main.py --scan ec2 --region us-east-1
 
-# Scan resources in a specific region
-python main.py --scan s3 --region us-east-1
-
-# Generate an HTML report
-python main.py --html-report report.html
+# Scan IAM users, filter for HIGH risk issues, and generate HTML report
+python main.py --scan iam --risk-level HIGH --html-report report.html --region us-east-1
 
 # Save findings to JSON
 python main.py --output findings.json
 
-# Scan and attempt to remediate issues (use with caution)
+# Attempt to remediate issues (use with caution)
 python main.py --remediate
 ```
 
@@ -97,6 +95,7 @@ python main.py --remediate
 | `--region REGION` | AWS region to scan | `--region us-east-1` |
 | `--output FILE` | Save findings to JSON file | `--output findings.json` |
 | `--html-report FILE` | Generate HTML report | `--html-report report.html` |
+| `--risk-level LEVEL` | Filter by minimum risk level | `--risk-level HIGH` |
 | `--notify` | Send notifications for findings | `--notify` |
 | `--slack-webhook URL` | Slack webhook URL | `--slack-webhook https://hooks.slack.com/...` |
 | `--teams-webhook URL` | Microsoft Teams webhook URL | `--teams-webhook https://outlook.office.com/...` |
@@ -123,6 +122,7 @@ python main.py --remediate
 | `elb` | Elastic Load Balancers | `--scan elb` |
 | `elasticsearch` | Elasticsearch domains | `--scan elasticsearch` |
 | `iam` | IAM users and access keys | `--scan iam` |
+| `ec2` | EC2 instances | `--scan ec2` |
 
 ### Risk Levels
 
@@ -142,7 +142,7 @@ The tool generates comprehensive HTML reports with:
 - Detailed tables of all findings with filtering
 - Specific remediation recommendations
 
-[HTML Report Example](https://htmlreportdemo2025.s3.us-east-1.amazonaws.com/report.html)
+![HTML Report Example](https://via.placeholder.com/800x400?text=HTML+Report+Example)
 
 ## 📁 Project Structure
 
@@ -162,7 +162,8 @@ aws-exposure-monitor/
 │   ├── rds_instances.py   # RDS instance scanner
 │   ├── elb.py             # Load balancer scanner
 │   ├── elasticsearch.py   # Elasticsearch scanner
-│   └── iam.py             # IAM user and access key scanner
+│   ├── iam.py             # IAM user and access key scanner
+│   └── ec2.py             # EC2 instance scanner
 ├── notifier/              # Notification modules (work in progress)
 │   ├── slack.py           # Slack notifications
 │   └── teams.py           # Microsoft Teams notifications
@@ -204,6 +205,9 @@ For read-only scanning:
                 "ec2:DescribeSnapshots",
                 "ec2:DescribeImages",
                 "ec2:DescribeAddresses",
+                "ec2:DescribeInstances",
+                "ec2:DescribeInstanceAttribute",
+                "ec2:DescribeVolumes",
                 "rds:DescribeDBSnapshots",
                 "rds:DescribeDBInstances",
                 "rds:DescribeDBClusters",
@@ -212,6 +216,7 @@ For read-only scanning:
                 "apigateway:GET",
                 "lambda:ListFunctions",
                 "lambda:GetPolicy",
+                "lambda:GetFunctionUrlConfig",
                 "cloudfront:ListDistributions",
                 "elasticloadbalancing:DescribeLoadBalancers",
                 "elasticloadbalancing:DescribeListeners",
@@ -221,7 +226,9 @@ For read-only scanning:
                 "iam:GetLoginProfile",
                 "iam:ListMFADevices",
                 "iam:ListAccessKeys",
-                "iam:GetAccessKeyLastUsed"
+                "iam:GetAccessKeyLastUsed",
+                "iam:GetAccountPasswordPolicy",
+                "ssm:DescribeInstanceInformation"
             ],
             "Resource": "*"
         }
@@ -254,6 +261,7 @@ For ongoing security monitoring:
       "PutBucketPolicy", 
       "CreateSecurityGroup", 
       "AuthorizeSecurityGroupIngress",
+      "RunInstances",
       "CreateDBInstance"
     ]
   }
