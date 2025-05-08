@@ -23,3 +23,5 @@ scanner/__pycache__/iam.cpython-311.pyc
 
 scanner/__pycache__/ec2.cpython-311.pyc
 
+scanner/__pycache__/secrets.cpython-311.pyc
+scanner/__pycache__/cw.cpython-311.pyc

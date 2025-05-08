@@ -32,6 +32,7 @@ A powerful security tool that scans your AWS environment for publicly exposed re
 | **IAM Users** | Inactive users (90+ days), old access keys (60+ days), missing MFA, admin privileges |
 | **EC2 Instances** | IMDSv1 usage (instead of IMDSv2), missing SSM agent, unencrypted volumes, public IPs |
 | **Secrets & KMS** | Unused secrets (90+ days), pending deletions, disabled key rotation, permissive policies |
+| **CloudWatch Logs** | Missing encryption, indefinite retention, missing security metric filters |
 
 ### 📊 Rich Reporting Options
 
@@ -81,14 +82,14 @@ python main.py --scan ec2 --region us-east-1
 # Scan IAM users, filter for HIGH risk issues, and generate HTML report
 python main.py --scan iam --risk-level HIGH --html-report report.html --region us-east-1
 
-
 # Scan Secrets Manager and KMS for security issues
 python main.py --scan secrets --region us-east-1
 
+# Scan CloudWatch Logs for security issues
+python main.py --scan cloudwatch --region us-east-1
+
 # Save findings to JSON
 python main.py --output findings.json
-
-
 ```
 
 ## 🛡️ IAM Scan Output (2025-05-08)
@@ -128,6 +129,7 @@ python main.py --output findings.json
 | `iam` | IAM users and access keys | `--scan iam` |
 | `ec2` | EC2 instances | `--scan ec2` |
 | `secrets` | Secrets Manager and KMS | `--scan secrets` |
+| `cloudwatch` | CloudWatch Logs | `--scan cloudwatch` |
 
 ### Risk Levels
 
@@ -169,7 +171,8 @@ aws-exposure-monitor/
 │   ├── elasticsearch.py   # Elasticsearch scanner
 │   ├── iam.py             # IAM user and access key scanner
 │   ├── ec2.py             # EC2 instance scanner
-│   └── secrets.py         # Secrets Manager and KMS scanner
+│   ├── secrets.py         # Secrets Manager and KMS scanner
+│   └── cw.py              # CloudWatch Logs scanner
 ├── notifier/              # Notification modules (work in progress)
 │   ├── slack.py           # Slack notifications
 │   └── teams.py           # Microsoft Teams notifications
@@ -242,7 +245,10 @@ For read-only scanning:
                 "kms:DescribeKey",
                 "kms:GetKeyPolicy",
                 "kms:GetKeyRotationStatus",
-                "kms:ListAliases"
+                "kms:ListAliases",
+                "logs:DescribeLogGroups",
+                "logs:DescribeLogStreams",
+                "logs:DescribeMetricFilters"
             ],
             "Resource": "*"
         }

@@ -64,6 +64,11 @@ try:
 except ImportError:
     scan_secrets_and_keys = None
 
+try:
+    from scanner.cw import scan_cloudwatch_logs
+except ImportError:
+    scan_cloudwatch_logs = None
+
 # Import notifier modules
 from notifier.slack import SlackNotifier
 try:
@@ -94,7 +99,7 @@ def parse_args():
     
     parser.add_argument('--scan', choices=['all', 's3', 'ebs', 'rds', 'amis', 'sg', 'ecr', 'api', 
                                           'cloudfront', 'lambda', 'eip', 'rds-instances', 'elb', 
-                                          'elasticsearch', 'iam', 'ec2', 'secrets'], 
+                                          'elasticsearch', 'iam', 'ec2', 'secrets', 'cloudwatch'], 
                         default='all', help='Resource type to scan')
     
     parser.add_argument('--region', 
@@ -301,6 +306,16 @@ def main():
                 print(f"Found {colorize(str(len(secrets_findings)), ConsoleColors.BOLD_WHITE)} Secrets Manager and KMS security issues")
         else:
             print("Secrets Manager and KMS scanner module not available")
+    
+    if args.scan in ['all', 'cloudwatch']:
+        print_subheader("[SCAN] CloudWatch Logs")
+        if scan_cloudwatch_logs:
+            cw_findings = scan_cloudwatch_logs(region=args.region)
+            all_findings.extend(cw_findings)
+            if cw_findings:
+                print(f"Found {colorize(str(len(cw_findings)), ConsoleColors.BOLD_WHITE)} CloudWatch Logs security issues")
+        else:
+            print("CloudWatch Logs scanner module not available")
     
     # Filter findings by risk level if specified
     if args.risk_level != 'ALL':
