@@ -15,6 +15,7 @@ def scan_vpc(region=None):
     - Public subnets with direct internet access
     - Missing VPC endpoints for private services
     - Insecure security group references
+    - IPv6 security issues
     
     Args:
         region (str, optional): AWS region to scan. If None, scan all regions.
@@ -73,6 +74,52 @@ def scan_vpc(region=None):
                         if tag.get('Key') == 'Name':
                             vpc_name = tag.get('Value')
                             break
+                    
+                    # Check for IPv6 CIDR blocks
+                    ipv6_cidrs = vpc.get('Ipv6CidrBlockAssociationSet', [])
+                    has_ipv6 = len(ipv6_cidrs) > 0
+                    
+                    if has_ipv6:
+                        print(f"    VPC {vpc_id} ({vpc_name}) has IPv6 CIDR blocks configured")
+                        
+                        # Check if IPv6 traffic is allowed to the internet
+                        try:
+                            route_tables = ec2_client.describe_route_tables(
+                                Filters=[{'Name': 'vpc-id', 'Values': [vpc_id]}]
+                            )
+                            
+                            for rt in route_tables.get('RouteTables', []):
+                                rt_id = rt.get('RouteTableId')
+                                
+                                # Check for default IPv6 routes to internet gateway
+                                for route in rt.get('Routes', []):
+                                    if route.get('DestinationIpv6CidrBlock') == '::/0' and route.get('GatewayId', '').startswith('igw-'):
+                                        # This route table has a default IPv6 route to an internet gateway
+                                        
+                                        # Check which subnets use this route table
+                                        subnet_associations = []
+                                        for assoc in rt.get('Associations', []):
+                                            if assoc.get('SubnetId'):
+                                                subnet_associations.append(assoc.get('SubnetId'))
+                                        
+                                        subnet_info = ""
+                                        if subnet_associations:
+                                            subnet_info = f" (affects subnets: {', '.join(subnet_associations[:3])})"
+                                            if len(subnet_associations) > 3:
+                                                subnet_info += f" and {len(subnet_associations) - 3} more"
+                                        
+                                        findings.append({
+                                            'ResourceType': 'VPC',
+                                            'ResourceId': vpc_id,
+                                            'ResourceName': vpc_name,
+                                            'Region': current_region,
+                                            'Risk': 'MEDIUM',
+                                            'Issue': f'VPC has a default route for all IPv6 traffic (::/0) to an Internet Gateway{subnet_info}',
+                                            'Recommendation': 'Review if public IPv6 access is required, and if not, remove the default IPv6 route'
+                                        })
+                                        print(f"    [!] FINDING: VPC {vpc_id} ({vpc_name}) has default IPv6 route to internet - MEDIUM risk")
+                        except ClientError as e:
+                            print(f"    Error checking route tables for VPC {vpc_id}: {e}")
                     
                     # Check if default VPC is being used
                     if is_default:
@@ -185,6 +232,22 @@ def scan_vpc(region=None):
                                 subnet_name = tag.get('Value')
                                 break
                         
+                        # Check for IPv6 addresses in subnet
+                        ipv6_cidr = subnet.get('Ipv6CidrBlockAssociationSet', [])
+                        if ipv6_cidr:
+                            # Check if subnet assigns IPv6 addresses automatically
+                            if subnet.get('AssignIpv6AddressOnCreation', False):
+                                findings.append({
+                                    'ResourceType': 'VPC Subnet',
+                                    'ResourceId': subnet_id,
+                                    'ResourceName': subnet_name,
+                                    'Region': current_region,
+                                    'Risk': 'MEDIUM',
+                                    'Issue': 'Subnet is configured to automatically assign IPv6 addresses',
+                                    'Recommendation': 'Disable automatic IPv6 address assignment unless required'
+                                })
+                                print(f"    [!] FINDING: Subnet {subnet_id} ({subnet_name}) auto-assigns IPv6 addresses - MEDIUM risk")
+                        
                         if is_public:
                             public_subnet_count += 1
                             findings.append({
@@ -226,6 +289,30 @@ def scan_vpc(region=None):
                                     })
                                     print(f"    [!] FINDING: NACL {nacl_id} has overly permissive inbound rule - MEDIUM risk")
                                     break
+                                
+                                # Check for IPv6 rules
+                                ipv6_cidr = entry.get('Ipv6CidrBlock')
+                                if ipv6_cidr == '::/0' and rule_action == 'allow' and not entry.get('Egress'):
+                                    port_range = entry.get('PortRange', {})
+                                    port_info = ""
+                                    if port_range:
+                                        from_port = port_range.get('From', 'all')
+                                        to_port = port_range.get('To', 'all')
+                                        if from_port == to_port:
+                                            port_info = f" on port {from_port}"
+                                        else:
+                                            port_info = f" on port range {from_port}-{to_port}"
+                                    
+                                    findings.append({
+                                        'ResourceType': 'VPC NACL',
+                                        'ResourceId': nacl_id,
+                                        'ResourceName': f"NACL for {vpc_name}",
+                                        'Region': current_region,
+                                        'Risk': 'MEDIUM',
+                                        'Issue': f"Network ACL allows inbound traffic from any IPv6 address (::/0){port_info}",
+                                        'Recommendation': 'Restrict inbound IPv6 traffic to specific address ranges'
+                                    })
+                                    print(f"    [!] FINDING: NACL {nacl_id} has overly permissive IPv6 inbound rule - MEDIUM risk")
                     
                     # Check for VPC endpoints for common services
                     endpoints = ec2_client.describe_vpc_endpoints(

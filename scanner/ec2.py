@@ -12,7 +12,7 @@ def scan_ec2_instances(region=None):
     - IMDSv1 usage (instead of IMDSv2)
     - Missing SSM agent
     - Unencrypted EBS volumes
-    - Public IP addresses
+    - Public IP addresses (IPv4 and IPv6)
     - Missing security patches
     - Instances running for extended periods
     - Stopped instances incurring unnecessary costs
@@ -181,7 +181,7 @@ def scan_ec2_instances(region=None):
                             })
                             print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) is not managed by SSM - MEDIUM risk")
                         
-                        # Check for public IP address
+                        # Check for public IP address (IPv4)
                         public_ip = instance.get('PublicIpAddress')
                         if public_ip:
                             findings.append({
@@ -193,10 +193,35 @@ def scan_ec2_instances(region=None):
                                 'State': state,
                                 'Region': current_region,
                                 'Risk': 'MEDIUM',
-                                'Issue': 'Instance has a public IP address',
+                                'Issue': 'Instance has a public IPv4 address',
                                 'Recommendation': 'Use private subnets with NAT gateway or VPC endpoints for private access'
                             })
-                            print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) has public IP {public_ip} - MEDIUM risk")
+                            print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) has public IPv4 {public_ip} - MEDIUM risk")
+                        
+                        # Check for IPv6 addresses
+                        network_interfaces = instance.get('NetworkInterfaces', [])
+                        ipv6_addresses = []
+                        
+                        for interface in network_interfaces:
+                            for ipv6 in interface.get('Ipv6Addresses', []):
+                                ipv6_addr = ipv6.get('Ipv6Address')
+                                if ipv6_addr:
+                                    ipv6_addresses.append(ipv6_addr)
+                        
+                        if ipv6_addresses:
+                            findings.append({
+                                'ResourceType': 'EC2 Instance',
+                                'ResourceId': instance_id,
+                                'ResourceName': instance_name,
+                                'InstanceType': instance_type,
+                                'IPv6Addresses': ipv6_addresses,
+                                'State': state,
+                                'Region': current_region,
+                                'Risk': 'MEDIUM',
+                                'Issue': f'Instance has {len(ipv6_addresses)} public IPv6 address(es)',
+                                'Recommendation': 'Consider disabling IPv6 if not required or implement security controls for IPv6 traffic'
+                            })
+                            print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) has {len(ipv6_addresses)} IPv6 addresses - MEDIUM risk")
                         
                         # Check for unencrypted EBS volumes
                         block_devices = instance.get('BlockDeviceMappings', [])

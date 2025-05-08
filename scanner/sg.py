@@ -210,6 +210,76 @@ def scan_security_groups(region=None):
                                     
                                     # Print finding immediately
                                     print(f"    [!] FINDING: {sg_name} ({sg_id}) - Public access to all ports on protocol {ip_protocol} - HIGH risk")
+                        
+                        # Check specifically for IPv6 rules
+                        for rule in sg.get('IpPermissions', []):
+                            from_port = rule.get('FromPort')
+                            to_port = rule.get('ToPort')
+                            ip_protocol = rule.get('IpProtocol', 'tcp')
+                            
+                            # Check if any IPv6 ranges include ::/0
+                            ipv6_public_access = False
+                            
+                            for ip_range in rule.get('Ipv6Ranges', []):
+                                cidr = ip_range.get('CidrIpv6')
+                                if cidr == '::/0':
+                                    ipv6_public_access = True
+                                    break
+                            
+                            if ipv6_public_access:
+                                # For IPv6, we'll create separate findings to highlight IPv6-specific risks
+                                if ip_protocol == '-1':  # All traffic
+                                    findings.append({
+                                        'ResourceType': 'Security Group',
+                                        'ResourceId': sg_id,
+                                        'ResourceName': sg_name,
+                                        'ResourceDescription': sg_description,
+                                        'VpcId': vpc_id,
+                                        'AssociatedResources': associated_resources[:5],
+                                        'Region': current_region,
+                                        'Risk': 'CRITICAL',
+                                        'Issue': 'Security group allows public IPv6 access (::/0) to ALL ports and protocols',
+                                        'Recommendation': 'Restrict IPv6 access to specific ports and address ranges'
+                                    })
+                                    print(f"    [!] FINDING: {sg_name} ({sg_id}) - Public IPv6 access to ALL ports - CRITICAL risk")
+                                
+                                elif from_port is not None and to_port is not None:
+                                    # Check for common IPv6-specific services
+                                    ipv6_sensitive = False
+                                    service_name = ""
+                                    
+                                    # IPv6-specific services or commonly exploited services over IPv6
+                                    if 3389 >= from_port and 3389 <= to_port:  # RDP
+                                        ipv6_sensitive = True
+                                        service_name = "RDP"
+                                    elif 22 >= from_port and 22 <= to_port:  # SSH
+                                        ipv6_sensitive = True
+                                        service_name = "SSH"
+                                    elif 80 >= from_port and 80 <= to_port:  # HTTP
+                                        ipv6_sensitive = True
+                                        service_name = "HTTP"
+                                    elif 443 >= from_port and 443 <= to_port:  # HTTPS
+                                        ipv6_sensitive = True
+                                        service_name = "HTTPS"
+                                    
+                                    if ipv6_sensitive:
+                                        risk_level = 'HIGH'
+                                        if service_name in ["SSH", "RDP"]:
+                                            risk_level = 'CRITICAL'
+                                            
+                                        findings.append({
+                                            'ResourceType': 'Security Group',
+                                            'ResourceId': sg_id,
+                                            'ResourceName': sg_name,
+                                            'ResourceDescription': sg_description,
+                                            'VpcId': vpc_id,
+                                            'AssociatedResources': associated_resources[:5],
+                                            'Region': current_region,
+                                            'Risk': risk_level,
+                                            'Issue': f'Security group allows public IPv6 access (::/0) to {service_name} (port {from_port})',
+                                            'Recommendation': f'Restrict IPv6 access to specific address ranges for {service_name}'
+                                        })
+                                        print(f"    [!] FINDING: {sg_name} ({sg_id}) - Public IPv6 access to {service_name} - {risk_level} risk")
             
             except ClientError as e:
                 print(f"  Error scanning security groups in {current_region}: {e}")

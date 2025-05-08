@@ -136,6 +136,25 @@ def scan_load_balancers(region=None):
                         if i % 5 == 0 or i == v2_count:
                             print(f"  Progress: {i}/{v2_count} {lb_type} LBs")
                         
+                        # Check for IPv6 support
+                        ip_address_type = lb.get('IpAddressType', 'ipv4')
+                        is_dualstack = 'dualstack' in ip_address_type.lower() or 'dualstack' in dns_name.lower()
+                        
+                        if is_dualstack and scheme == 'internet-facing':
+                            findings.append({
+                                'ResourceType': f'{lb_type} Load Balancer',
+                                'ResourceId': lb_name,
+                                'ResourceName': lb_name,
+                                'DNSName': dns_name,
+                                'Scheme': scheme,
+                                'IpAddressType': ip_address_type,
+                                'Region': current_region,
+                                'Risk': 'MEDIUM',
+                                'Issue': f'Internet-facing {lb_type} Load Balancer is configured for dual-stack (IPv4 and IPv6)',
+                                'Recommendation': 'Ensure security groups and network ACLs properly restrict IPv6 traffic'
+                            })
+                            print(f"    [!] FINDING: {lb_type} LB {lb_name} is dual-stack (IPv4/IPv6) - MEDIUM risk")
+                        
                         # Check if load balancer is internet-facing
                         if scheme == 'internet-facing':
                             # Get listeners
