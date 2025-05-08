@@ -71,7 +71,7 @@ aws configure
 # Scan all resource types in all regions
 python main.py
 
-# Scan only S3 buckets
+# Scan only S3 buckets 
 python main.py --scan s3
 
 # Scan a specific region
@@ -89,11 +89,11 @@ python main.py --html-report report.html
 # Save findings to JSON
 python main.py --output findings.json
 
-# Scan IAM users for security issues
-python main.py --scan iam
-
 # Scan and attempt to remediate issues (use with caution : work in progress)
 python main.py --remediate
+
+#Example command to scan and get HTML Report only Filtering for HIGH or higher risk findings with region specific & resource specific 
+python main.py --risk-level HIGH --html-report report.html --region us-east-1 --scan iam
 ```
 
 ## 📋 Command Line Options
@@ -105,10 +105,6 @@ python main.py --remediate
 | `--output FILE` | Save findings to JSON file | `--output findings.json` |
 | `--html-report FILE` | Generate HTML report | `--html-report report.html` |
 | `--risk-level LEVEL` | Filter by minimum risk level | `--risk-level HIGH` |
-| `--notify` | Send notifications for findings | `--notify` |
-| `--slack-webhook URL` | Slack webhook URL | `--slack-webhook https://hooks.slack.com/...` |
-| `--teams-webhook URL` | Microsoft Teams webhook URL | `--teams-webhook https://outlook.office.com/...` |
-| `--remediate` | Automatically fix issues | `--remediate` |
 | `--verbose` | Show detailed progress | `--verbose` |
 
 
