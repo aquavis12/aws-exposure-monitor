@@ -9,7 +9,7 @@
 </div>
 
 A powerful security tool that scans your AWS environment for publicly exposed resources, security vulnerabilities, and misconfigurations. It generates detailed reports and helps you identify and remediate security risks.
-(/images/image-3.png)
+![](/images/image-3.png)
 ## ✨ Features
 
 - **Comprehensive Scanning** of 20+ AWS services
@@ -73,16 +73,16 @@ python main.py --scan ec2,s3 --region us-east-1 --risk-level MEDIUM --html-repor
 ## 🛡️ Scan Outputs 
 
 *IAM SCAN*
-(/images/image.png)
+![](/images/image.png)
 
 *Secrets and KMS Scan*
-(/images/image-1.png)
+![](/images/image-1.png)
 
 *S3 Bucket Scan*
-(/images/image-2.png)
+![](/images/image-2.png)
 
 *HTML Report with Security Score*
-![HTML Report with Security Score](https://htmlreportdemo2025.s3.us-east-1.amazonaws.com/report.html)
+![](https://htmlreportdemo2025.s3.us-east-1.amazonaws.com/report.html)
 
 ## 📋 Command Line Options
 
