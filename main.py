@@ -59,6 +59,11 @@ try:
 except ImportError:
     scan_ec2_instances = None
 
+try:
+    from scanner.secrets import scan_secrets_and_keys
+except ImportError:
+    scan_secrets_and_keys = None
+
 # Import notifier modules
 from notifier.slack import SlackNotifier
 try:
@@ -89,7 +94,7 @@ def parse_args():
     
     parser.add_argument('--scan', choices=['all', 's3', 'ebs', 'rds', 'amis', 'sg', 'ecr', 'api', 
                                           'cloudfront', 'lambda', 'eip', 'rds-instances', 'elb', 
-                                          'elasticsearch', 'iam', 'ec2'], 
+                                          'elasticsearch', 'iam', 'ec2', 'secrets'], 
                         default='all', help='Resource type to scan')
     
     parser.add_argument('--region', 
@@ -286,6 +291,16 @@ def main():
                 print(f"Found {colorize(str(len(ec2_findings)), ConsoleColors.BOLD_WHITE)} EC2 security issues")
         else:
             print("EC2 scanner module not available")
+    
+    if args.scan in ['all', 'secrets']:
+        print_subheader("[SCAN] Secrets Manager and KMS")
+        if scan_secrets_and_keys:
+            secrets_findings = scan_secrets_and_keys(region=args.region)
+            all_findings.extend(secrets_findings)
+            if secrets_findings:
+                print(f"Found {colorize(str(len(secrets_findings)), ConsoleColors.BOLD_WHITE)} Secrets Manager and KMS security issues")
+        else:
+            print("Secrets Manager and KMS scanner module not available")
     
     # Filter findings by risk level if specified
     if args.risk_level != 'ALL':

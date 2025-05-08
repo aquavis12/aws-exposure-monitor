@@ -31,6 +31,7 @@ A powerful security tool that scans your AWS environment for publicly exposed re
 | **Elasticsearch** | Public access, encryption at rest, node-to-node encryption, HTTPS enforcement |
 | **IAM Users** | Inactive users (90+ days), old access keys (60+ days), missing MFA, admin privileges |
 | **EC2 Instances** | IMDSv1 usage (instead of IMDSv2), missing SSM agent, unencrypted volumes, public IPs |
+| **Secrets & KMS** | Unused secrets (90+ days), pending deletions, disabled key rotation, permissive policies |
 
 ### 📊 Rich Reporting Options
 
@@ -74,26 +75,20 @@ python main.py
 # Scan only S3 buckets 
 python main.py --scan s3
 
-# Scan a specific region
-python main.py --region us-east-1
-
-# Scan EC2 instances in a specific region
+# Scan EC2 instances in us-east-1 region
 python main.py --scan ec2 --region us-east-1
 
-# Filter for HIGH and CRITICAL risk findings only
-python main.py --risk-level HIGH
+# Scan IAM users, filter for HIGH risk issues, and generate HTML report
+python main.py --scan iam --risk-level HIGH --html-report report.html --region us-east-1
+![alt text](image.png)
 
-# Generate an HTML report
-python main.py --html-report report.html
+# Scan Secrets Manager and KMS for security issues
+python main.py --scan secrets --region us-east-1
 
 # Save findings to JSON
 python main.py --output findings.json
 
-# Scan and attempt to remediate issues (use with caution : work in progress)
-python main.py --remediate
 
-#Example command to scan and get HTML Report only Filtering for HIGH or higher risk findings with region specific & resource specific 
-python main.py --risk-level HIGH --html-report report.html --region us-east-1 --scan iam
 ```
 
 ## 📋 Command Line Options
@@ -106,7 +101,7 @@ python main.py --risk-level HIGH --html-report report.html --region us-east-1 --
 | `--html-report FILE` | Generate HTML report | `--html-report report.html` |
 | `--risk-level LEVEL` | Filter by minimum risk level | `--risk-level HIGH` |
 | `--verbose` | Show detailed progress | `--verbose` |
-
+| `--no-color` | Disable colored output | `--no-color` |
 
 ### Available Scan Types
 
@@ -128,6 +123,7 @@ python main.py --risk-level HIGH --html-report report.html --region us-east-1 --
 | `elasticsearch` | Elasticsearch domains | `--scan elasticsearch` |
 | `iam` | IAM users and access keys | `--scan iam` |
 | `ec2` | EC2 instances | `--scan ec2` |
+| `secrets` | Secrets Manager and KMS | `--scan secrets` |
 
 ### Risk Levels
 
@@ -168,7 +164,8 @@ aws-exposure-monitor/
 │   ├── elb.py             # Load balancer scanner
 │   ├── elasticsearch.py   # Elasticsearch scanner
 │   ├── iam.py             # IAM user and access key scanner
-│   └── ec2.py             # EC2 instance scanner
+│   ├── ec2.py             # EC2 instance scanner
+│   └── secrets.py         # Secrets Manager and KMS scanner
 ├── notifier/              # Notification modules (work in progress)
 │   ├── slack.py           # Slack notifications
 │   └── teams.py           # Microsoft Teams notifications
@@ -234,7 +231,14 @@ For read-only scanning:
                 "iam:ListAccessKeys",
                 "iam:GetAccessKeyLastUsed",
                 "iam:GetAccountPasswordPolicy",
-                "ssm:DescribeInstanceInformation"
+                "ssm:DescribeInstanceInformation",
+                "secretsmanager:ListSecrets",
+                "secretsmanager:DescribeSecret",
+                "kms:ListKeys",
+                "kms:DescribeKey",
+                "kms:GetKeyPolicy",
+                "kms:GetKeyRotationStatus",
+                "kms:ListAliases"
             ],
             "Resource": "*"
         }
