@@ -82,7 +82,7 @@ python main.py --scan ec2,s3 --region us-east-1 --risk-level MEDIUM --html-repor
 ![](/images/image-2.png)
 
 *HTML Report with Security Score*
-![Demo Report](https://htmlreportdemo2025.s3.us-east-1.amazonaws.com/report.html)
+👉 [View Security Report](https://htmlreportdemo2025.s3.us-east-1.amazonaws.com/report.html)
 
 ## 📋 Command Line Options
 
