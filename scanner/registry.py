@@ -183,6 +183,70 @@ def get_available_scanners() -> ScannerRegistry:
             'module': 'dynamodb',
             'function': 'scan_dynamodb',
             'description': 'Scans DynamoDB tables for encryption, backups, and point-in-time recovery'
+        },
+        
+        # New scanners
+        'aurora': {
+            'name': 'Aurora Clusters',
+            'module': 'aurora',
+            'function': 'scan_aurora_clusters',
+            'description': 'Scans Aurora clusters for public accessibility, encryption, and backup configuration'
+        },
+        'waf': {
+            'name': 'WAF Web ACLs',
+            'module': 'waf',
+            'function': 'scan_waf',
+            'description': 'Scans WAF Web ACLs for rule configurations, logging, and resource associations'
+        },
+        'lightsail': {
+            'name': 'Lightsail Resources',
+            'module': 'lightsail',
+            'function': 'scan_lightsail',
+            'description': 'Scans Lightsail instances, databases, and load balancers for security issues'
+        },
+        
+        # Template and code scanners
+        'templates': {
+            'name': 'Templates and Code',
+            'module': 'template_scan.scanner',
+            'function': 'scan_templates',
+            'description': 'Scans CloudFormation templates, CDK, Terraform, Pulumi, OpenTofu, and AWS SDK code for security issues'
+        },
+        'cftemplate': {
+            'name': 'CloudFormation Templates',
+            'module': 'template_scan.cftemplate',
+            'function': 'scan_cloudformation_templates',
+            'description': 'Scans CloudFormation templates for security misconfigurations and best practices'
+        },
+        'cdk': {
+            'name': 'CDK Code',
+            'module': 'template_scan.cdk_scan',
+            'function': 'scan_cdk_code',
+            'description': 'Scans AWS CDK code for security issues and misconfigurations'
+        },
+        'terraform': {
+            'name': 'Terraform Code',
+            'module': 'template_scan.terraform_scan',
+            'function': 'scan_terraform_code',
+            'description': 'Scans Terraform code for AWS security issues and misconfigurations'
+        },
+        'sdk': {
+            'name': 'AWS SDK Code',
+            'module': 'template_scan.sdk_scan',
+            'function': 'scan_sdk_code',
+            'description': 'Scans AWS SDK code for security issues like hardcoded credentials and insecure configurations'
+        },
+        'pulumi': {
+            'name': 'Pulumi Code',
+            'module': 'template_scan.pulumi_scan',
+            'function': 'scan_pulumi_code',
+            'description': 'Scans Pulumi code for AWS security issues and misconfigurations'
+        },
+        'opentofu': {
+            'name': 'OpenTofu Code',
+            'module': 'template_scan.opentofu_scan',
+            'function': 'scan_opentofu_code',
+            'description': 'Scans OpenTofu code for AWS security issues and misconfigurations'
         }
     }
     

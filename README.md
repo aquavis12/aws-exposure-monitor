@@ -12,13 +12,17 @@ A powerful security tool that scans your AWS environment for publicly exposed re
 ![](/images/image-3.png)
 ## ✨ Features
 
-- **Comprehensive Scanning** of 20+ AWS services
+- **Comprehensive Scanning** of 30+ AWS services
 - **Multi-Region Support** to scan your entire AWS footprint
 - **Security Scoring** to track your security posture over time
 - **Interactive HTML Reports** with visualizations and filtering
+- **CSV and JSON Reports** for integration with other tools
 - **Risk-Based Prioritization** to focus on critical issues first
 - **Notification Integration** with Slack and Microsoft Teams
 - **Comma-Separated Scanning** to target specific services
+- **Infrastructure as Code Scanning** for CloudFormation, CDK, Terraform, Pulumi, and OpenTofu
+- **AWS SDK Code Scanning** for security vulnerabilities
+- **Enhanced Security Posture** with hundreds of security checks
 
 ## 🚀 Quick Start
 
@@ -54,11 +58,29 @@ python main.py --region us-east-1
 # Filter for HIGH risk issues and generate HTML report
 python main.py --risk-level HIGH --html-report report.html
 
-# Scan IAM users in us-east-1 region
-python main.py --scan iam --region us-east-1
+# Generate CSV and JSON reports
+python main.py --csv-report findings.csv --json-report findings.json
 
-# Save findings to JSON file
-python main.py --output findings.json
+# Scan CloudFormation templates
+python main.py --scan cftemplate --cf-template-dir /path/to/templates
+
+# Scan CDK code
+python main.py --scan cdk --cdk-dir /path/to/cdk
+
+# Scan Terraform code
+python main.py --scan terraform --terraform-dir /path/to/terraform
+
+# Scan Pulumi code
+python main.py --scan pulumi --pulumi-dir /path/to/pulumi
+
+# Scan OpenTofu code
+python main.py --scan opentofu --opentofu-dir /path/to/opentofu
+
+# Scan AWS SDK code
+python main.py --scan sdk --sdk-dir /path/to/sdk
+
+# Scan all templates and code
+python main.py --scan templates --template-dir /path/to/code
 
 # Send notifications to Slack
 python main.py --notify --slack-webhook https://hooks.slack.com/services/YOUR/WEBHOOK/URL
@@ -93,6 +115,15 @@ python main.py --scan ec2,s3 --region us-east-1 --risk-level MEDIUM --html-repor
 | `--risk-level LEVEL` | Filter by minimum risk level (LOW, MEDIUM, HIGH, CRITICAL, ALL) | `--risk-level HIGH` |
 | `--output FILE` | Save findings to JSON file | `--output findings.json` |
 | `--html-report FILE` | Generate HTML report with security score | `--html-report report.html` |
+| `--csv-report FILE` | Generate CSV report | `--csv-report findings.csv` |
+| `--json-report FILE` | Generate JSON report with metadata | `--json-report findings.json` |
+| `--template-dir DIR` | Directory to scan for templates and code | `--template-dir /path/to/code` |
+| `--cf-template-dir DIR` | Directory containing CloudFormation templates | `--cf-template-dir /path/to/templates` |
+| `--cdk-dir DIR` | Directory containing CDK code | `--cdk-dir /path/to/cdk` |
+| `--terraform-dir DIR` | Directory containing Terraform code | `--terraform-dir /path/to/terraform` |
+| `--pulumi-dir DIR` | Directory containing Pulumi code | `--pulumi-dir /path/to/pulumi` |
+| `--opentofu-dir DIR` | Directory containing OpenTofu code | `--opentofu-dir /path/to/opentofu` |
+| `--sdk-dir DIR` | Directory containing AWS SDK code | `--sdk-dir /path/to/sdk` |
 | `--list-scanners` | List all available scanners | `--list-scanners` |
 | `--notify` | Send notifications for findings | `--notify` |
 | `--slack-webhook URL` | Slack webhook URL for notifications | `--slack-webhook https://hooks.slack.com/...` |
@@ -129,6 +160,16 @@ python main.py --scan ec2,s3 --region us-east-1 --risk-level MEDIUM --html-repor
 | `cloudtrail` | CloudTrail | `--scan cloudtrail` |
 | `guardduty` | GuardDuty | `--scan guardduty` |
 | `vpc` | VPC | `--scan vpc` |
+| `aurora` | Aurora clusters | `--scan aurora` |
+| `waf` | WAF Web ACLs | `--scan waf` |
+| `lightsail` | Lightsail resources | `--scan lightsail` |
+| `templates` | All templates and code | `--scan templates` |
+| `cftemplate` | CloudFormation templates | `--scan cftemplate` |
+| `cdk` | CDK code | `--scan cdk` |
+| `terraform` | Terraform code | `--scan terraform` |
+| `pulumi` | Pulumi code | `--scan pulumi` |
+| `opentofu` | OpenTofu code | `--scan opentofu` |
+| `sdk` | AWS SDK code | `--scan sdk` |
 
 ### Risk Levels
 
@@ -162,6 +203,95 @@ To generate an HTML report with security score:
 
 ```bash
 python main.py --html-report security_report.html
+```
+
+## 📊 CSV and JSON Reports
+
+The tool can also generate CSV and JSON reports for integration with other tools:
+
+```bash
+# Generate CSV report
+python main.py --csv-report findings.csv
+
+# Generate JSON report with metadata
+python main.py --json-report findings.json
+```
+
+## 🔍 Infrastructure as Code Scanning
+
+The tool can scan various Infrastructure as Code (IaC) formats for security issues:
+
+### CloudFormation Template Scanning
+
+Detects security issues in CloudFormation templates, including:
+- Hardcoded secrets
+- Insecure IAM permissions
+- Unencrypted resources
+- Public access configurations
+- Missing security controls
+
+```bash
+python main.py --scan cftemplate --cf-template-dir /path/to/templates
+```
+
+### CDK Code Scanning
+
+Detects security issues in AWS CDK code, including:
+- Insecure constructs
+- Missing encryption
+- Public access configurations
+- Overly permissive IAM policies
+
+```bash
+python main.py --scan cdk --cdk-dir /path/to/cdk
+```
+
+### Terraform Code Scanning
+
+Detects security issues in Terraform code, including:
+- Hardcoded credentials
+- Insecure resource configurations
+- Missing encryption
+- Public access configurations
+
+```bash
+python main.py --scan terraform --terraform-dir /path/to/terraform
+```
+
+### Pulumi Code Scanning
+
+Detects security issues in Pulumi code, including:
+- Hardcoded credentials
+- Insecure resource configurations
+- Missing encryption
+- Public access configurations
+
+```bash
+python main.py --scan pulumi --pulumi-dir /path/to/pulumi
+```
+
+### OpenTofu Code Scanning
+
+Detects security issues in OpenTofu code, including:
+- Hardcoded credentials
+- Insecure resource configurations
+- Missing encryption
+- Public access configurations
+
+```bash
+python main.py --scan opentofu --opentofu-dir /path/to/opentofu
+```
+
+### AWS SDK Code Scanning
+
+Detects security issues in AWS SDK code, including:
+- Hardcoded credentials
+- Insecure configurations
+- Missing encryption
+- Overly permissive IAM policies
+
+```bash
+python main.py --scan sdk --sdk-dir /path/to/sdk
 ```
 
 ## 🔒 Required IAM Permissions
@@ -243,7 +373,23 @@ For read-only scanning:
                 "dynamodb:DescribeContinuousBackups",
                 "dynamodb:ListBackups",
                 "application-autoscaling:DescribeScalingPolicies",
-                "dynamodb:DescribeTimeToLive"
+                "dynamodb:DescribeTimeToLive",
+                "rds:DescribeDBClusters",
+                "wafv2:ListWebACLs",
+                "wafv2:GetWebACL",
+                "wafv2:GetLoggingConfiguration",
+                "wafv2:ListResourcesForWebACL",
+                "waf-regional:ListWebACLs",
+                "waf-regional:GetWebACL",
+                "waf-regional:ListResourcesForWebACL",
+                "lightsail:GetInstances",
+                "lightsail:GetInstancePortStates",
+                "lightsail:GetInstanceSnapshots",
+                "lightsail:GetRelationalDatabases",
+                "lightsail:GetRelationalDatabaseSnapshots",
+                "lightsail:GetLoadBalancers",
+                "cloudformation:ListStacks",
+                "cloudformation:GetTemplate"
             ],
             "Resource": "*"
         }
@@ -268,12 +414,25 @@ aws-exposure-monitor/
 │   ├── sns.py              # SNS topic scanner
 │   ├── sqs.py              # SQS queue scanner
 │   ├── dynamodb.py         # DynamoDB table scanner
+│   ├── aurora.py           # Aurora cluster scanner
+│   ├── waf.py              # WAF Web ACL scanner
+│   ├── lightsail.py        # Lightsail resource scanner
+│   ├── template_scan/      # Template and code scanners
+│   │   ├── cftemplate.py   # CloudFormation template scanner
+│   │   ├── cdk_scan.py     # CDK code scanner
+│   │   ├── terraform_scan.py # Terraform code scanner
+│   │   ├── pulumi_scan.py  # Pulumi code scanner
+│   │   ├── opentofu_scan.py # OpenTofu code scanner
+│   │   ├── sdk_scan.py     # AWS SDK code scanner
+│   │   └── scanner.py      # Main template scanner
 │   └── ...                 # Other scanners
 ├── notifier/               # Notification modules
 │   ├── slack.py            # Slack notifications
 │   └── teams.py            # Teams notifications
 ├── reporter/               # Reporting modules
 │   ├── html_reporter.py    # HTML report generator
+│   ├── csv_reporter.py     # CSV report generator
+│   ├── json_reporter.py    # JSON report generator
 │   ├── security_score.py   # Security score calculator
 │   └── console_reporter.py # Console output formatter
 ├── main.py                 # Main application
@@ -293,11 +452,25 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 - **Scanner Modules**: Complete and fully functional
 - **HTML Reporting**: Complete and fully functional
+- **CSV/JSON Reporting**: Complete and fully functional
 - **Console Output**: Complete with colored formatting
 - **Risk Level Filtering**: Complete and fully functional
 - **Multiple Resource Scanning**: Complete and fully functional
-- **Notification Modules**: Work in progress
+- **Template and Code Scanning**: Complete and fully functional
+- **Notification Modules**: Complete and fully functional
 - **Remediation Modules**: Work in progress
+
+## 🔍 Security Posture Checks
+
+The tool performs hundreds of security checks across AWS services, including:
+
+- **Identity & Access Management**: MFA enforcement, password policies, access key rotation, privilege escalation
+- **Data Protection**: Encryption at rest, encryption in transit, public access controls, backup configurations
+- **Network Security**: Security group rules, NACLs, VPC flow logs, network exposure
+- **Logging & Monitoring**: CloudTrail configuration, CloudWatch alarms, GuardDuty enablement
+- **Compliance**: CIS benchmark checks, AWS Well-Architected Framework alignment
+- **Infrastructure as Code**: Hardcoded secrets, insecure configurations, missing security controls
+- **Application Security**: API Gateway authorization, Lambda function security, container security
 
 ---
 

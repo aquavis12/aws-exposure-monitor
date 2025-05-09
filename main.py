@@ -51,6 +51,21 @@ except ImportError:
         print("HTML report generation requires Jinja2. Install with: pip install jinja2")
         return None
 
+# Import new reporter modules
+try:
+    from reporter.csv_reporter import generate_csv_report
+except ImportError:
+    def generate_csv_report(findings, output_path=None):
+        print("CSV report generation requires csv module. Install with: pip install csv")
+        return None
+
+try:
+    from reporter.json_reporter import generate_json_report
+except ImportError:
+    def generate_json_report(findings, output_path=None):
+        print("JSON report generation requires json module. Install with: pip install json")
+        return None
+
 
 def parse_args():
     """Parse command line arguments"""
@@ -79,6 +94,33 @@ def parse_args():
     
     parser.add_argument('--html-report',
                         help='Generate HTML report and save to specified path')
+    
+    parser.add_argument('--csv-report',
+                        help='Generate CSV report and save to specified path')
+    
+    parser.add_argument('--json-report',
+                        help='Generate JSON report and save to specified path')
+    
+    parser.add_argument('--template-dir',
+                        help='Directory to scan for templates and code (CloudFormation, CDK, Terraform, Pulumi, OpenTofu, SDK)')
+    
+    parser.add_argument('--cf-template-dir',
+                        help='Directory containing CloudFormation templates to scan')
+    
+    parser.add_argument('--cdk-dir',
+                        help='Directory containing CDK code to scan')
+    
+    parser.add_argument('--terraform-dir',
+                        help='Directory containing Terraform code to scan')
+    
+    parser.add_argument('--pulumi-dir',
+                        help='Directory containing Pulumi code to scan')
+    
+    parser.add_argument('--opentofu-dir',
+                        help='Directory containing OpenTofu code to scan')
+    
+    parser.add_argument('--sdk-dir',
+                        help='Directory containing AWS SDK code to scan')
     
     parser.add_argument('--verbose', action='store_true',
                         help='Show detailed progress information')
@@ -245,7 +287,24 @@ def main():
         
         print_subheader(f"[SCAN] {scanner_name}")
         try:
-            findings = scanner_function(region=args.region)
+            # Handle special cases for template scanners
+            if scan_type == 'templates' and args.template_dir:
+                findings = scanner_function(args.template_dir, region=args.region)
+            elif scan_type == 'cftemplate' and args.cf_template_dir:
+                findings = scanner_function(args.cf_template_dir, region=args.region)
+            elif scan_type == 'cdk' and args.cdk_dir:
+                findings = scanner_function(args.cdk_dir)
+            elif scan_type == 'terraform' and args.terraform_dir:
+                findings = scanner_function(args.terraform_dir)
+            elif scan_type == 'pulumi' and args.pulumi_dir:
+                findings = scanner_function(args.pulumi_dir)
+            elif scan_type == 'opentofu' and args.opentofu_dir:
+                findings = scanner_function(args.opentofu_dir)
+            elif scan_type == 'sdk' and args.sdk_dir:
+                findings = scanner_function(args.sdk_dir)
+            else:
+                findings = scanner_function(region=args.region)
+                
             all_findings.extend(findings)
             if findings:
                 print(f"Found {colorize(str(len(findings)), ConsoleColors.BOLD_WHITE)} {scanner_name} issues")
@@ -282,6 +341,24 @@ def main():
                 print(f"\nHTML report generated: {colorize(report_path, ConsoleColors.BOLD_GREEN)}")
         except Exception as e:
             print(f"Error generating HTML report: {colorize(str(e), ConsoleColors.BOLD_RED)}")
+    
+    # Generate CSV report if requested
+    if args.csv_report:
+        try:
+            report_path = generate_csv_report(all_findings, args.csv_report)
+            if report_path:
+                print(f"\nCSV report generated: {colorize(report_path, ConsoleColors.BOLD_GREEN)}")
+        except Exception as e:
+            print(f"Error generating CSV report: {colorize(str(e), ConsoleColors.BOLD_RED)}")
+    
+    # Generate JSON report if requested
+    if args.json_report:
+        try:
+            report_path = generate_json_report(all_findings, args.json_report)
+            if report_path:
+                print(f"\nJSON report generated: {colorize(report_path, ConsoleColors.BOLD_GREEN)}")
+        except Exception as e:
+            print(f"Error generating JSON report: {colorize(str(e), ConsoleColors.BOLD_RED)}")
     
     # Send notifications if requested
     if args.notify:
