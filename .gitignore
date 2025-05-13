@@ -35,3 +35,17 @@ scanner/__pycache__/sqs.cpython-311.pyc
 scanner/__pycache__/sns.cpython-311.pyc
 scanner/__pycache__/dynamodb.cpython-311.pyc
 reporter/__pycache__/security_score.cpython-311.pyc
+reporter/__pycache__/csv_reporter.cpython-311.pyc
+reporter/__pycache__/json_reporter.cpython-311.pyc
+scanner/__pycache__/aurora.cpython-311.pyc
+scanner/template_scan/__pycache__/scanner.cpython-311.pyc
+scanner/template_scan/__pycache__/terraform_scan.cpython-311.pyc
+scanner/template_scan/__pycache__/sdk_scan.cpython-311.pyc
+scanner/template_scan/__pycache__/pulumi_scan.cpython-311.pyc
+.gitignore
+scanner/template_scan/__pycache__/cftemplate.cpython-311.pyc
+scanner/template_scan/__pycache__/cdk_scan.cpython-311.pyc
+scanner/template_scan/__pycache__/opentofu_scan.cpython-311.pyc
+scanner/template_scan/__pycache__/__init__.cpython-311.pyc
+scanner/__pycache__/waf.cpython-311.pyc
+scanner/__pycache__/lightsail.cpython-311.pyc

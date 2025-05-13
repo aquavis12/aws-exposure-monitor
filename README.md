@@ -103,6 +103,8 @@ python main.py --scan ec2,s3 --region us-east-1 --risk-level MEDIUM --html-repor
 *S3 Bucket Scan*
 ![](/images/image-2.png)
 
+*Terraform Output Scan*
+![](/images/image-4.png)
 *HTML Report with Security Score*
 👉 [View Security Report](https://htmlreportdemo2025.s3.us-east-1.amazonaws.com/report.html)
 
