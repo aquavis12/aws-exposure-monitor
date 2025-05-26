@@ -44,6 +44,39 @@ def generate_html_report(findings, output_path=None):
             risk_levels[risk] = []
         risk_levels[risk].append(finding)
     
+    # Group findings by category
+    categories = {
+        'Compute': [],
+        'Security': [],
+        'Database': [],
+        'Storage': [],
+        'Networking': [],
+        'Cost': [],
+        'Other': []
+    }
+    
+    # Categorize findings based on resource type
+    for finding in findings:
+        resource_type = finding.get('ResourceType', 'Unknown')
+        
+        if resource_type in ['EC2 Instance', 'Lambda Function', 'ECS Cluster', 'EKS Cluster', 'Lightsail Instance']:
+            categories['Compute'].append(finding)
+        elif resource_type in ['IAM User', 'IAM Role', 'IAM Policy', 'Security Group', 'KMS Key', 'CloudTrail', 'GuardDuty', 'WAF Web ACL']:
+            categories['Security'].append(finding)
+        elif resource_type in ['RDS Instance', 'RDS Snapshot', 'DynamoDB Table', 'Aurora Cluster', 'ElastiCache Cluster', 'RDS Parameter Group']:
+            categories['Database'].append(finding)
+        elif resource_type in ['S3 Bucket', 'S3 Object', 'EBS Volume', 'EBS Snapshot', 'EFS File System']:
+            categories['Storage'].append(finding)
+        elif resource_type in ['VPC', 'Subnet', 'Internet Gateway', 'Route Table', 'Network ACL', 'Elastic IP', 'API Gateway', 'CloudFront Distribution']:
+            categories['Networking'].append(finding)
+        elif 'Cost' in finding.get('Issue', '') or resource_type == 'Cost Optimization':
+            categories['Cost'].append(finding)
+        else:
+            categories['Other'].append(finding)
+    
+    # Remove empty categories
+    categories = {k: v for k, v in categories.items() if v}
+    
     # Sort risk levels by severity
     risk_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'UNKNOWN': 4}
     sorted_risk_levels = sorted(risk_levels.items(), key=lambda x: risk_order.get(x[0], 5))
@@ -67,7 +100,8 @@ def generate_html_report(findings, output_path=None):
         'risk_levels': dict(sorted_risk_levels),
         'regions': regions,
         'findings': findings,
-        'security_score': security_score
+        'security_score': security_score,
+        'categories': categories
     }
     
     # Load HTML template
@@ -554,14 +588,62 @@ def generate_html_report(findings, output_path=None):
             <canvas id="regionChart"></canvas>
         </div>
         
-        <h2>Detailed Findings</h2>
+        <h2>Findings by Category</h2>
         
         <div class="filters">
             <button class="filter-button active" data-filter="all">All</button>
             {% for risk in risk_levels.keys() %}
             <button class="filter-button" data-filter="{{ risk.lower() }}">{{ risk }}</button>
             {% endfor %}
+            <button class="filter-button" data-filter="category-compute">Compute</button>
+            <button class="filter-button" data-filter="category-security">Security</button>
+            <button class="filter-button" data-filter="category-database">Database</button>
+            <button class="filter-button" data-filter="category-storage">Storage</button>
+            <button class="filter-button" data-filter="category-networking">Networking</button>
+            <button class="filter-button" data-filter="category-cost">Cost</button>
         </div>
+        
+        <div id="category-sections">
+            {% for category_name, items in categories.items() %}
+            <div class="category-section" data-category="{{ category_name.lower() }}">
+                <div class="resource-header">
+                    <h2>{{ category_name }}</h2>
+                    <span class="resource-count">{{ items|length }} findings</span>
+                </div>
+                
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Resource Type</th>
+                                <th>Resource ID</th>
+                                <th>Region</th>
+                                <th>Risk</th>
+                                <th>Issue</th>
+                                <th>Recommendation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for finding in items %}
+                            <tr class="finding-row risk-{{ finding.Risk|lower }} category-{{ category_name.lower() }}">
+                                <td>{{ finding.ResourceType }}</td>
+                                <td>{{ finding.ResourceName if finding.ResourceName else finding.ResourceId }}</td>
+                                <td>{{ finding.Region }}</td>
+                                <td>
+                                    <span class="badge badge-{{ finding.Risk|lower }}">{{ finding.Risk }}</span>
+                                </td>
+                                <td>{{ finding.Issue }}</td>
+                                <td class="recommendation">{{ finding.Recommendation }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <h2>Detailed Findings by Resource Type</h2>
         
         <div id="resource-sections">
             {% for resource_type, items in resource_types.items() %}
@@ -755,6 +837,7 @@ def generate_html_report(findings, output_path=None):
             const filterButtons = document.querySelectorAll('.filter-button');
             const findingRows = document.querySelectorAll('.finding-row');
             const resourceSections = document.querySelectorAll('.resource-section');
+            const categorySections = document.querySelectorAll('.category-section');
             
             filterButtons.forEach(button => {
                 button.addEventListener('click', function() {
@@ -768,7 +851,16 @@ def generate_html_report(findings, output_path=None):
                     findingRows.forEach(row => {
                         if (filter === 'all') {
                             row.style.display = '';
+                        } else if (filter.startsWith('category-')) {
+                            // Category filter
+                            const category = filter.replace('category-', '');
+                            if (row.classList.contains(filter)) {
+                                row.style.display = '';
+                            } else {
+                                row.style.display = 'none';
+                            }
                         } else {
+                            // Risk level filter
                             if (row.classList.contains(`risk-${filter}`)) {
                                 row.style.display = '';
                             } else {
@@ -796,19 +888,49 @@ def generate_html_report(findings, output_path=None):
                         }
                     });
                     
+                    // Hide empty category sections
+                    categorySections.forEach(section => {
+                        const visibleRows = section.querySelectorAll('.finding-row[style="display: none;"]').length;
+                        const totalRows = section.querySelectorAll('.finding-row').length;
+                        
+                        if (visibleRows === totalRows) {
+                            section.style.display = 'none';
+                        } else {
+                            section.style.display = '';
+                            
+                            // Update the count in the category header
+                            const visibleCount = totalRows - visibleRows;
+                            const countElement = section.querySelector('.resource-count');
+                            if (countElement) {
+                                countElement.textContent = `${visibleCount} findings`;
+                            }
+                        }
+                    });
+                    
                     // Check if all sections are hidden
-                    const allSectionsHidden = Array.from(resourceSections).every(section => 
+                    const allResourceSectionsHidden = Array.from(resourceSections).every(section => 
+                        section.style.display === 'none'
+                    );
+                    
+                    const allCategorySectionsHidden = Array.from(categorySections).every(section => 
                         section.style.display === 'none'
                     );
                     
                     // Show a message if no findings match the filter
                     let noFindingsMessage = document.getElementById('no-findings-message');
-                    if (allSectionsHidden) {
+                    if (allResourceSectionsHidden && allCategorySectionsHidden) {
                         if (!noFindingsMessage) {
                             noFindingsMessage = document.createElement('div');
                             noFindingsMessage.id = 'no-findings-message';
                             noFindingsMessage.className = 'no-findings';
-                            noFindingsMessage.textContent = `No ${filter.toUpperCase()} risk findings to display`;
+                            
+                            if (filter.startsWith('category-')) {
+                                const category = filter.replace('category-', '');
+                                noFindingsMessage.textContent = `No findings in ${category.toUpperCase()} category to display`;
+                            } else {
+                                noFindingsMessage.textContent = `No ${filter.toUpperCase()} risk findings to display`;
+                            }
+                            
                             document.getElementById('resource-sections').appendChild(noFindingsMessage);
                         }
                     } else if (noFindingsMessage) {

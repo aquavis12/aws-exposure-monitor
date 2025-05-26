@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import sys
+import boto3
 from datetime import datetime
 from textwrap import wrap
 
@@ -16,9 +17,14 @@ from scanner.registry import (
     get_scanner_function,
     get_scanner_name,
     get_scanner_ids,
+    get_scanner_ids_by_category,
     get_scanner_description,
+    get_scanner_category,
     is_scanner_available
 )
+
+# Import profile detector
+from scanner.profile_detector import get_usable_profiles, create_session_for_profile
 
 # Import notifier modules
 try:
@@ -31,16 +37,6 @@ try:
 except ImportError:
     TeamsNotifier = None
 
-# Import remediator modules
-try:
-    from remediator.s3 import remediate_s3_findings
-except ImportError:
-    remediate_s3_findings = None
-
-try:
-    from remediator.ebs import remediate_ebs_findings
-except ImportError:
-    remediate_ebs_findings = None
 
 # Import reporter modules
 from reporter.console_reporter import print_header, print_subheader, print_finding, print_summary, colorize, ConsoleColors
@@ -72,10 +68,13 @@ def parse_args():
     parser = argparse.ArgumentParser(description='AWS Public Resource Exposure Monitor')
     
     parser.add_argument('--scan', 
-                        help='Resource type(s) to scan (comma-separated list or "all")')
+                        help='Resource type(s) to scan (comma-separated list, category name, or "all")')
     
     parser.add_argument('--region', 
                         help='AWS region to scan (default: scan all regions)')
+    
+    parser.add_argument('--profile',
+                        help='AWS profile to use (default: auto-detect available profiles)')
     
     parser.add_argument('--notify', action='store_true', 
                         help='Send notifications for findings')
@@ -185,6 +184,7 @@ def list_available_scanners():
     # Calculate column widths
     id_width = max(len(key) for key in scanners.keys()) + 2
     name_width = max(len(scanner['name']) for scanner in scanners.values()) + 2
+    category_width = 12  # Category name + padding
     status_width = 12  # "Available" or "Not Available" + padding
     
     # Calculate terminal width for description wrapping
@@ -193,47 +193,61 @@ def list_available_scanners():
     except (AttributeError, OSError):
         terminal_width = 100
     
-    desc_width = terminal_width - id_width - name_width - status_width - 4
+    desc_width = terminal_width - id_width - name_width - category_width - status_width - 4
     
-    # Print table header
-    header = (
-        f"{'ID'.ljust(id_width)}"
-        f"{'Name'.ljust(name_width)}"
-        f"{'Status'.ljust(status_width)}"
-        f"Description"
-    )
-    print(colorize(header, ConsoleColors.BOLD_WHITE))
-    print(colorize("-" * terminal_width, ConsoleColors.BOLD_WHITE))
+    # Group scanners by category
+    scanners_by_category = {}
+    for key, scanner in scanners.items():
+        category = scanner.get('category', 'Other')
+        if category not in scanners_by_category:
+            scanners_by_category[category] = []
+        scanners_by_category[category].append((key, scanner))
     
-    # Print table rows
-    for key, scanner in sorted(scanners.items()):
-        status = "Available" if scanner['available'] else "Not Available"
-        status_color = ConsoleColors.GREEN if scanner['available'] else ConsoleColors.RED
-        description = scanner.get('description', '')
+    # Print scanners by category
+    for category, category_scanners in sorted(scanners_by_category.items()):
+        print_subheader(f"{category} Category")
         
-        # Wrap description text
-        if description:
-            wrapped_desc = wrap(description, width=desc_width)
-            first_line = wrapped_desc[0]
-            rest_lines = wrapped_desc[1:] if len(wrapped_desc) > 1 else []
-        else:
-            first_line = ""
-            rest_lines = []
-        
-        # Print first line with all columns
-        print(
-            f"{key.ljust(id_width)}"
-            f"{scanner['name'].ljust(name_width)}"
-            f"{colorize(status.ljust(status_width), status_color)}"
-            f"{first_line}"
+        # Print table header
+        header = (
+            f"{'ID'.ljust(id_width)}"
+            f"{'Name'.ljust(name_width)}"
+            f"{'Status'.ljust(status_width)}"
+            f"Description"
         )
+        print(colorize(header, ConsoleColors.BOLD_WHITE))
+        print(colorize("-" * terminal_width, ConsoleColors.BOLD_WHITE))
         
-        # Print remaining description lines with proper indentation
-        for line in rest_lines:
-            print(f"{' '.ljust(id_width + name_width + status_width)}{line}")
+        # Print table rows
+        for key, scanner in sorted(category_scanners):
+            status = "Available" if scanner['available'] else "Not Available"
+            status_color = ConsoleColors.GREEN if scanner['available'] else ConsoleColors.RED
+            description = scanner.get('description', '')
+            
+            # Wrap description text
+            if description:
+                wrapped_desc = wrap(description, width=desc_width)
+                first_line = wrapped_desc[0]
+                rest_lines = wrapped_desc[1:] if len(wrapped_desc) > 1 else []
+            else:
+                first_line = ""
+                rest_lines = []
+            
+            # Print first line with all columns
+            print(
+                f"{key.ljust(id_width)}"
+                f"{scanner['name'].ljust(name_width)}"
+                f"{colorize(status.ljust(status_width), status_color)}"
+                f"{first_line}"
+            )
+            
+            # Print remaining description lines with proper indentation
+            for line in rest_lines:
+                print(f"{' '.ljust(id_width + name_width + status_width)}{line}")
+            
+            # Add a blank line between entries for readability
+            print()
         
-        # Add a blank line between entries for readability
-        print()
+        print()  # Add extra blank line between categories
 
 
 def main():
@@ -249,6 +263,38 @@ def main():
     print_ascii_art()
     print_header(f"Scan started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
+    # Handle AWS profiles
+    aws_profile = args.profile
+    if not aws_profile:
+        # Auto-detect profiles
+        print("Auto-detecting AWS profiles...")
+        usable_profiles = get_usable_profiles()
+        
+        if not usable_profiles:
+            print(colorize("No usable AWS profiles found. Please configure AWS credentials.", ConsoleColors.BOLD_RED))
+            return 1
+        
+        if len(usable_profiles) == 1:
+            aws_profile = usable_profiles[0]['profile_name']
+            print(f"Using AWS profile: {colorize(aws_profile, ConsoleColors.BOLD_CYAN)} (Account: {usable_profiles[0]['account_id']})")
+        else:
+            print(f"Found {len(usable_profiles)} AWS profiles:")
+            for i, profile in enumerate(usable_profiles, 1):
+                print(f"  {i}. {colorize(profile['profile_name'], ConsoleColors.BOLD_CYAN)} (Account: {profile['account_id']})")
+            
+            # Use default profile if available
+            if any(p['profile_name'] == 'default' for p in usable_profiles):
+                aws_profile = 'default'
+                print(f"Using default AWS profile: {colorize(aws_profile, ConsoleColors.BOLD_CYAN)}")
+            else:
+                aws_profile = usable_profiles[0]['profile_name']
+                print(f"Using AWS profile: {colorize(aws_profile, ConsoleColors.BOLD_CYAN)} (Account: {usable_profiles[0]['account_id']})")
+    else:
+        print(f"Using specified AWS profile: {colorize(aws_profile, ConsoleColors.BOLD_CYAN)}")
+    
+    # Create boto3 session with the selected profile
+    boto3.setup_default_session(profile_name=aws_profile)
+    
     # Show region information
     if args.region:
         print(f"Scanning region: {colorize(args.region, ConsoleColors.BOLD_CYAN)}")
@@ -261,31 +307,60 @@ def main():
     
     # Parse scan types
     scan_types = []
-    if args.scan.lower() == 'all':
+    if args.scan and args.scan.lower() == 'all':
         scan_types = get_scanner_ids()
+    elif args.scan:
+        # Check if the scan argument is a category name
+        categories = ['compute', 'security', 'database', 'storage', 'networking', 'cost']
+        if args.scan.lower() in categories:
+            category = args.scan.lower()
+            scan_types = get_scanner_ids_by_category(category)
+            print(f"Scanning {colorize(category.upper(), ConsoleColors.BOLD_CYAN)} category resources")
+        else:
+            scan_types = [s.strip().lower() for s in args.scan.split(',')]
+            
+            # Validate scan types
+            invalid_types = [s for s in scan_types if s not in get_scanner_ids()]
+            if invalid_types:
+                print(f"Error: Invalid scan type(s): {', '.join(invalid_types)}")
+                print(f"Available scan types: {', '.join(get_scanner_ids())}")
+                return 1
     else:
-        scan_types = [s.strip().lower() for s in args.scan.split(',')]
-        
-        # Validate scan types
-        invalid_types = [s for s in scan_types if s not in get_scanner_ids()]
-        if invalid_types:
-            print(f"Error: Invalid scan type(s): {', '.join(invalid_types)}")
-            print(f"Available scan types: {', '.join(get_scanner_ids())}")
-            return 1
+        # Default to a set of common scanners if none specified
+        scan_types = ['s3', 'ec2', 'rds', 'iam', 'sg', 'secrets_scanner', 'cost']
+        print(f"No scan types specified, using default set: {colorize(', '.join(scan_types), ConsoleColors.BOLD_CYAN)}")
     
     # Collect findings
     all_findings = []
     
-    # Scan resources based on arguments
+    # Group scanners by category for better organization
+    scanners_by_category = {}
     for scan_type in scan_types:
         if not is_scanner_available(scan_type):
             print(f"Scanner for {scan_type} is not available, skipping...")
             continue
         
+        category = get_scanner_category(scan_type)
+        if category not in scanners_by_category:
+            scanners_by_category[category] = []
+        scanners_by_category[category].append(scan_type)
+    
+    # Print scan plan by category
+    print_subheader("Scan Plan")
+    for category, scanners in scanners_by_category.items():
+        print(f"{colorize(category, ConsoleColors.BOLD_WHITE)}: {', '.join(get_scanner_name(s) for s in scanners)}")
+    print()
+    
+    # Scan resources based on arguments
+    for scan_type in scan_types:
+        if not is_scanner_available(scan_type):
+            continue
+        
         scanner_name = get_scanner_name(scan_type)
         scanner_function = get_scanner_function(scan_type)
+        scanner_category = get_scanner_category(scan_type)
         
-        print_subheader(f"[SCAN] {scanner_name}")
+        print_subheader(f"[SCAN] {scanner_name} ({scanner_category})")
         try:
             # Handle special cases for template scanners
             if scan_type == 'templates' and args.template_dir:
@@ -321,7 +396,38 @@ def main():
             print(f"\nFiltered {len(all_findings) - len(filtered_findings)} findings below {args.risk_level} risk level")
             all_findings = filtered_findings
     
-    # Print summary
+    # Group findings by category
+    findings_by_category = {}
+    for finding in all_findings:
+        resource_type = finding.get('ResourceType', 'Unknown')
+        
+        # Determine category based on resource type
+        if resource_type in ['EC2 Instance', 'Lambda Function', 'ECS Cluster', 'EKS Cluster', 'Lightsail Instance']:
+            category = 'Compute'
+        elif resource_type in ['IAM User', 'IAM Role', 'IAM Policy', 'Security Group', 'KMS Key', 'CloudTrail', 'GuardDuty', 'WAF Web ACL']:
+            category = 'Security'
+        elif resource_type in ['RDS Instance', 'RDS Snapshot', 'DynamoDB Table', 'Aurora Cluster', 'ElastiCache Cluster', 'RDS Parameter Group']:
+            category = 'Database'
+        elif resource_type in ['S3 Bucket', 'S3 Object', 'EBS Volume', 'EBS Snapshot', 'EFS File System']:
+            category = 'Storage'
+        elif resource_type in ['VPC', 'Subnet', 'Internet Gateway', 'Route Table', 'Network ACL', 'Elastic IP', 'API Gateway', 'CloudFront Distribution']:
+            category = 'Networking'
+        elif 'Cost' in finding.get('Issue', '') or resource_type == 'Cost Optimization':
+            category = 'Cost'
+        else:
+            category = 'Other'
+        
+        if category not in findings_by_category:
+            findings_by_category[category] = []
+        findings_by_category[category].append(finding)
+    
+    # Print summary by category
+    print_subheader("Findings Summary by Category")
+    for category, findings in findings_by_category.items():
+        print(f"{colorize(category, ConsoleColors.BOLD_WHITE)}: {len(findings)} findings")
+    print()
+    
+    # Print overall summary
     print_summary(all_findings)
     
     # Save findings to file if requested
@@ -378,32 +484,7 @@ def main():
         elif args.teams_webhook:
             print("Teams notifier module not available")
     
-    # Remediate issues if requested
-    if args.remediate:
-        print_subheader("Remediating issues...")
-        
-        # Remediate S3 issues
-        s3_findings = [f for f in all_findings if f.get('ResourceType') == 'S3 Bucket']
-        if s3_findings and remediate_s3_findings:
-            print(f"Remediating {colorize(str(len(s3_findings)), ConsoleColors.BOLD_WHITE)} S3 bucket issues...")
-            s3_results = remediate_s3_findings(s3_findings)
-            
-            success_count = sum(1 for r in s3_results if r.get('success', False))
-            print(f"Successfully remediated {colorize(str(success_count), ConsoleColors.BOLD_GREEN)} of {len(s3_findings)} S3 bucket issues")
-        elif s3_findings:
-            print("S3 remediation module not available")
-        
-        # Remediate EBS issues if the module is available
-        ebs_findings = [f for f in all_findings if f.get('ResourceType') == 'EBS Snapshot']
-        if ebs_findings and remediate_ebs_findings:
-            print(f"Remediating {colorize(str(len(ebs_findings)), ConsoleColors.BOLD_WHITE)} EBS snapshot issues...")
-            ebs_results = remediate_ebs_findings(ebs_findings)
-            
-            success_count = sum(1 for r in ebs_results if r.get('success', False))
-            print(f"Successfully remediated {colorize(str(success_count), ConsoleColors.BOLD_GREEN)} of {len(ebs_findings)} EBS snapshot issues")
-        elif ebs_findings:
-            print("EBS remediation module not available")
-    
+
     print_header("Scan completed")
     
     # Return non-zero exit code if issues were found

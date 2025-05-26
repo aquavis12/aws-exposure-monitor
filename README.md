@@ -23,6 +23,10 @@ A powerful security tool that scans your AWS environment for publicly exposed re
 - **Infrastructure as Code Scanning** for CloudFormation, CDK, Terraform, Pulumi, and OpenTofu
 - **AWS SDK Code Scanning** for security vulnerabilities
 - **Enhanced Security Posture** with hundreds of security checks
+- **AWS Profile Auto-Detection** for seamless credential management
+- **Hardcoded Secrets Detection** in S3, API Gateway, and RDS
+- **Cost Optimization Scanning** to identify cost-saving opportunities
+- **Category-Based Organization** of findings (Compute, Security, Database, Storage, Networking, Cost)
 
 ## 🚀 Quick Start
 
@@ -55,6 +59,17 @@ python main.py --scan ec2,s3,iam
 # Scan a specific region
 python main.py --region us-east-1
 
+# Use a specific AWS profile
+python main.py --profile my-profile
+
+# Scan by category
+python main.py --scan compute  # Scans all compute resources
+python main.py --scan security # Scans all security resources
+python main.py --scan database # Scans all database resources
+python main.py --scan storage  # Scans all storage resources
+python main.py --scan networking # Scans all networking resources
+python main.py --scan cost     # Scans for cost optimization
+
 # Filter for HIGH risk issues and generate HTML report
 python main.py --risk-level HIGH --html-report report.html
 
@@ -64,32 +79,11 @@ python main.py --csv-report findings.csv --json-report findings.json
 # Scan CloudFormation templates
 python main.py --scan cftemplate --cf-template-dir /path/to/templates
 
-# Scan CDK code
-python main.py --scan cdk --cdk-dir /path/to/cdk
+# Scan for hardcoded secrets
+python main.py --scan secrets_scanner
 
-# Scan Terraform code
-python main.py --scan terraform --terraform-dir /path/to/terraform
-
-# Scan Pulumi code
-python main.py --scan pulumi --pulumi-dir /path/to/pulumi
-
-# Scan OpenTofu code
-python main.py --scan opentofu --opentofu-dir /path/to/opentofu
-
-# Scan AWS SDK code
-python main.py --scan sdk --sdk-dir /path/to/sdk
-
-# Scan all templates and code
-python main.py --scan templates --template-dir /path/to/code
-
-# Send notifications to Slack
-python main.py --notify --slack-webhook https://hooks.slack.com/services/YOUR/WEBHOOK/URL
-
-# Send notifications to Microsoft Teams
-python main.py --notify --teams-webhook https://your-org.webhook.office.com/webhookb2/your-webhook-url
-
-# Combine multiple options
-python main.py --scan ec2,s3 --region us-east-1 --risk-level MEDIUM --html-report report.html
+# Scan for cost optimization opportunities
+python main.py --scan cost
 ```
 
 ## 🛡️ Scan Outputs 
@@ -114,6 +108,7 @@ python main.py --scan ec2,s3 --region us-east-1 --risk-level MEDIUM --html-repor
 |--------|-------------|---------|
 | `--scan TYPES` | Resource type(s) to scan (comma-separated) | `--scan s3,ec2,iam` |
 | `--region REGION` | AWS region to scan | `--region us-east-1` |
+| `--profile PROFILE` | AWS profile to use | `--profile my-profile` |
 | `--risk-level LEVEL` | Filter by minimum risk level (LOW, MEDIUM, HIGH, CRITICAL, ALL) | `--risk-level HIGH` |
 | `--output FILE` | Save findings to JSON file | `--output findings.json` |
 | `--html-report FILE` | Generate HTML report with security score | `--html-report report.html` |
@@ -133,45 +128,55 @@ python main.py --scan ec2,s3 --region us-east-1 --risk-level MEDIUM --html-repor
 | `--verbose` | Show detailed progress information | `--verbose` |
 | `--no-color` | Disable colored output | `--no-color` |
 
-### Available Scan Types
+### Available Scan Types by Category
 
-| Scan Type | Description | Command |
-|-----------|-------------|---------|
-| `all` | All resource types (default) | `--scan all` |
-| `s3` | S3 buckets | `--scan s3` |
-| `ebs` | EBS snapshots | `--scan ebs` |
-| `rds` | RDS snapshots | `--scan rds` |
-| `amis` | Amazon Machine Images | `--scan amis` |
-| `sg` | Security Groups | `--scan sg` |
-| `ecr` | ECR repositories | `--scan ecr` |
-| `api` | API Gateway endpoints | `--scan api` |
-| `cloudfront` | CloudFront distributions | `--scan cloudfront` |
-| `lambda` | Lambda functions | `--scan lambda` |
-| `eip` | Elastic IPs | `--scan eip` |
-| `rds-instances` | RDS instances | `--scan rds-instances` |
-| `elb` | Elastic Load Balancers | `--scan elb` |
-| `elasticsearch` | Elasticsearch domains | `--scan elasticsearch` |
-| `iam` | IAM users and access keys | `--scan iam` |
-| `ec2` | EC2 instances | `--scan ec2` |
-| `secrets` | Secrets Manager and KMS | `--scan secrets` |
-| `cloudwatch` | CloudWatch Logs | `--scan cloudwatch` |
-| `sns` | SNS topics | `--scan sns` |
-| `sqs` | SQS queues | `--scan sqs` |
-| `dynamodb` | DynamoDB tables | `--scan dynamodb` |
-| `config` | AWS Config | `--scan config` |
-| `cloudtrail` | CloudTrail | `--scan cloudtrail` |
-| `guardduty` | GuardDuty | `--scan guardduty` |
-| `vpc` | VPC | `--scan vpc` |
-| `aurora` | Aurora clusters | `--scan aurora` |
-| `waf` | WAF Web ACLs | `--scan waf` |
-| `lightsail` | Lightsail resources | `--scan lightsail` |
-| `templates` | All templates and code | `--scan templates` |
-| `cftemplate` | CloudFormation templates | `--scan cftemplate` |
-| `cdk` | CDK code | `--scan cdk` |
-| `terraform` | Terraform code | `--scan terraform` |
-| `pulumi` | Pulumi code | `--scan pulumi` |
-| `opentofu` | OpenTofu code | `--scan opentofu` |
-| `sdk` | AWS SDK code | `--scan sdk` |
+#### Compute
+- `ec2` - EC2 instances
+- `amis` - Amazon Machine Images
+- `ecr` - ECR repositories
+- `lambda` - Lambda functions
+- `lightsail` - Lightsail resources
+
+#### Security
+- `iam` - IAM users and access keys
+- `sg` - Security Groups
+- `secrets` - Secrets Manager and KMS
+- `secrets_scanner` - Hardcoded secrets scanner
+- `cloudtrail` - CloudTrail
+- `guardduty` - GuardDuty
+- `config` - AWS Config
+- `cloudwatch` - CloudWatch Logs
+- `waf` - WAF Web ACLs
+- `templates` - All templates and code
+- `cftemplate` - CloudFormation templates
+- `cdk` - CDK code
+- `terraform` - Terraform code
+- `pulumi` - Pulumi code
+- `opentofu` - OpenTofu code
+- `sdk` - AWS SDK code
+
+#### Database
+- `rds` - RDS snapshots
+- `rds-instances` - RDS instances
+- `aurora` - Aurora clusters
+- `elasticsearch` - Elasticsearch domains
+- `dynamodb` - DynamoDB tables
+
+#### Storage
+- `s3` - S3 buckets
+- `ebs` - EBS snapshots
+
+#### Networking
+- `api` - API Gateway endpoints
+- `cloudfront` - CloudFront distributions
+- `elb` - Elastic Load Balancers
+- `eip` - Elastic IPs
+- `vpc` - VPC
+- `sns` - SNS topics
+- `sqs` - SQS queues
+
+#### Cost
+- `cost` - Cost optimization scanner
 
 ### Risk Levels
 
@@ -189,17 +194,9 @@ The tool generates comprehensive HTML reports with:
 - **Security Score** showing your overall security posture (0-100)
 - **Risk Breakdown** by severity level
 - **Interactive Charts** showing findings by resource type and risk level
+- **Category-Based Organization** of findings (Compute, Security, Database, Storage, Networking, Cost)
 - **Detailed Tables** of all findings with filtering options
 - **Remediation Recommendations** for each finding
-
-### Security Score
-
-The security score is calculated based on the severity of findings:
-- **90-100**: Excellent - Very few security issues
-- **75-89**: Good - Relatively secure with some issues to address
-- **60-74**: Fair - Several security issues requiring attention
-- **40-59**: Poor - Significant security vulnerabilities
-- **0-39**: Critical - Critical security issues requiring immediate action
 
 To generate an HTML report with security score:
 
@@ -207,93 +204,16 @@ To generate an HTML report with security score:
 python main.py --html-report security_report.html
 ```
 
-## 📊 CSV and JSON Reports
-
-The tool can also generate CSV and JSON reports for integration with other tools:
-
-```bash
-# Generate CSV report
-python main.py --csv-report findings.csv
-
-# Generate JSON report with metadata
-python main.py --json-report findings.json
-```
-
 ## 🔍 Infrastructure as Code Scanning
 
 The tool can scan various Infrastructure as Code (IaC) formats for security issues:
 
-### CloudFormation Template Scanning
-
-Detects security issues in CloudFormation templates, including:
-- Hardcoded secrets
-- Insecure IAM permissions
-- Unencrypted resources
-- Public access configurations
-- Missing security controls
-
 ```bash
-python main.py --scan cftemplate --cf-template-dir /path/to/templates
-```
+# Scan all templates and code
+python main.py --scan templates --template-dir /path/to/code
 
-### CDK Code Scanning
-
-Detects security issues in AWS CDK code, including:
-- Insecure constructs
-- Missing encryption
-- Public access configurations
-- Overly permissive IAM policies
-
-```bash
-python main.py --scan cdk --cdk-dir /path/to/cdk
-```
-
-### Terraform Code Scanning
-
-Detects security issues in Terraform code, including:
-- Hardcoded credentials
-- Insecure resource configurations
-- Missing encryption
-- Public access configurations
-
-```bash
-python main.py --scan terraform --terraform-dir /path/to/terraform
-```
-
-### Pulumi Code Scanning
-
-Detects security issues in Pulumi code, including:
-- Hardcoded credentials
-- Insecure resource configurations
-- Missing encryption
-- Public access configurations
-
-```bash
-python main.py --scan pulumi --pulumi-dir /path/to/pulumi
-```
-
-### OpenTofu Code Scanning
-
-Detects security issues in OpenTofu code, including:
-- Hardcoded credentials
-- Insecure resource configurations
-- Missing encryption
-- Public access configurations
-
-```bash
-python main.py --scan opentofu --opentofu-dir /path/to/opentofu
-```
-
-### AWS SDK Code Scanning
-
-Detects security issues in AWS SDK code, including:
-- Hardcoded credentials
-- Insecure configurations
-- Missing encryption
-- Overly permissive IAM policies
-
-```bash
-python main.py --scan sdk --sdk-dir /path/to/sdk
+# Scan specific IaC formats
+python main.py --scan cftemplate,terraform,cdk --template-dir /path/to/code
 ```
 
 ## 🔒 Required IAM Permissions
@@ -405,10 +325,13 @@ For read-only scanning:
 aws-exposure-monitor/
 ├── scanner/                # Resource scanners
 │   ├── registry.py         # Scanner registry
+│   ├── profile_detector.py # AWS profile detector
 │   ├── s3.py               # S3 bucket scanner
 │   ├── ec2.py              # EC2 instance scanner
 │   ├── iam.py              # IAM user scanner
 │   ├── sg.py               # Security group scanner
+│   ├── secrets_scanner.py  # Hardcoded secrets scanner
+│   ├── cost_scanner.py     # Cost optimization scanner
 │   ├── cloudtrail.py       # CloudTrail scanner
 │   ├── config.py           # AWS Config scanner
 │   ├── guardduty.py        # GuardDuty scanner
@@ -460,19 +383,11 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - **Multiple Resource Scanning**: Complete and fully functional
 - **Template and Code Scanning**: Complete and fully functional
 - **Notification Modules**: Complete and fully functional
+- **AWS Profile Auto-Detection**: Complete and fully functional
+- **Hardcoded Secrets Detection**: Complete and fully functional
+- **Cost Optimization Scanning**: Complete and fully functional
+- **Category-Based Organization**: Complete and fully functional
 - **Remediation Modules**: Work in progress
-
-## 🔍 Security Posture Checks
-
-The tool performs hundreds of security checks across AWS services, including:
-
-- **Identity & Access Management**: MFA enforcement, password policies, access key rotation, privilege escalation
-- **Data Protection**: Encryption at rest, encryption in transit, public access controls, backup configurations
-- **Network Security**: Security group rules, NACLs, VPC flow logs, network exposure
-- **Logging & Monitoring**: CloudTrail configuration, CloudWatch alarms, GuardDuty enablement
-- **Compliance**: CIS benchmark checks, AWS Well-Architected Framework alignment
-- **Infrastructure as Code**: Hardcoded secrets, insecure configurations, missing security controls
-- **Application Security**: API Gateway authorization, Lambda function security, container security
 
 ---
 

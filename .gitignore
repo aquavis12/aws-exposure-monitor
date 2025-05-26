@@ -49,3 +49,7 @@ scanner/template_scan/__pycache__/opentofu_scan.cpython-311.pyc
 scanner/template_scan/__pycache__/__init__.cpython-311.pyc
 scanner/__pycache__/waf.cpython-311.pyc
 scanner/__pycache__/lightsail.cpython-311.pyc
+scanner/__pycache__/cost_scanner.cpython-311.pyc
+scanner/__pycache__/profile_detector.cpython-311.pyc
+scanner/__pycache__/secrets_scanner.cpython-311.pyc
+scanner/__pycache__/cost_explorer.cpython-311.pyc
