@@ -23,10 +23,7 @@ def scan_templates(directory, region=None):
     """
     findings = []
     
-    print(f"Starting template scan in directory: {directory}")
-    
     if not os.path.isdir(directory):
-        print(f"Error: {directory} is not a valid directory")
         return findings
     
     # Scan CloudFormation templates
@@ -54,8 +51,6 @@ def scan_templates(directory, region=None):
     findings.extend(opentofu_findings)
     
     if findings:
-        print(f"Found {len(findings)} template and code security issues.")
     else:
-        print("No template or code security issues found.")
     
     return findings

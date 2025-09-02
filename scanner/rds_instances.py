@@ -17,17 +17,13 @@ def scan_rds_instances(region=None):
     """
     findings = []
     
-    print("Starting RDS instance scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_instance_count = 0
@@ -37,8 +33,7 @@ def scan_rds_instances(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
-                
+                pass
             rds_client = boto3.client('rds', region_name=current_region)
             
             try:
@@ -79,7 +74,6 @@ def scan_rds_instances(region=None):
                                 'Issue': 'RDS instance is publicly accessible',
                                 'Recommendation': 'Disable public accessibility and use private subnets with VPC endpoints'
                             })
-                            print(f"    [!] FINDING: RDS instance {instance_id} is publicly accessible - HIGH risk")
                         
                         # Check if storage is not encrypted
                         if not storage_encrypted:
@@ -94,7 +88,6 @@ def scan_rds_instances(region=None):
                                 'Issue': 'RDS instance storage is not encrypted',
                                 'Recommendation': 'Enable storage encryption for the RDS instance'
                             })
-                            print(f"    [!] FINDING: RDS instance {instance_id} storage is not encrypted - MEDIUM risk")
                         
                         # Check if instance has enhanced monitoring enabled
                         if instance.get('MonitoringInterval', 0) == 0:
@@ -109,7 +102,6 @@ def scan_rds_instances(region=None):
                                 'Issue': 'RDS instance does not have enhanced monitoring enabled',
                                 'Recommendation': 'Enable enhanced monitoring for better visibility'
                             })
-                            print(f"    [!] FINDING: RDS instance {instance_id} has no enhanced monitoring - LOW risk")
                 
                 # Get all Aurora clusters
                 clusters = []
@@ -158,7 +150,6 @@ def scan_rds_instances(region=None):
                                 'Issue': 'Aurora cluster has publicly accessible instances',
                                 'Recommendation': 'Disable public accessibility for all instances in the cluster'
                             })
-                            print(f"    [!] FINDING: Aurora cluster {cluster_id} has publicly accessible instances - HIGH risk")
                         
                         # Check if storage is not encrypted
                         if not storage_encrypted:
@@ -173,22 +164,10 @@ def scan_rds_instances(region=None):
                                 'Issue': 'Aurora cluster storage is not encrypted',
                                 'Recommendation': 'Enable storage encryption for the Aurora cluster'
                             })
-                            print(f"    [!] FINDING: Aurora cluster {cluster_id} storage is not encrypted - MEDIUM risk")
             
             except ClientError as e:
-                print(f"  Error scanning RDS instances in {current_region}: {e}")
-        
-        if total_instance_count == 0:
-            print("No RDS instances found.")
-        else:
-            print(f"RDS instance scan complete. Scanned {total_instance_count} instances.")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning RDS instances: {e}")
-    
-    if findings:
-        print(f"Found {len(findings)} RDS instance issues.")
-    else:
-        print("No RDS instance issues found.")
+        pass
     
     return findings

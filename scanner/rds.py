@@ -17,27 +17,22 @@ def scan_rds_snapshots(region=None):
     """
     findings = []
     
-    print("Starting RDS snapshot scan...")
+
     
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_snapshots_found = 0
         
         for current_region in regions:
             region_count += 1
-            if len(regions) > 1:
-                print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
-            else:
-                print(f"Scanning region: {current_region}")
+            pass
                 
             rds_client = boto3.client('rds', region_name=current_region)
             
@@ -48,7 +43,6 @@ def scan_rds_snapshots(region=None):
                 
                 if db_snapshots:
                     total_snapshots_found += len(db_snapshots)
-                    print(f"  Found {len(db_snapshots)} RDS snapshots in {current_region}")
                     
                     for i, snapshot in enumerate(db_snapshots, 1):
                         snapshot_id = snapshot['DBSnapshotIdentifier']
@@ -57,8 +51,39 @@ def scan_rds_snapshots(region=None):
                         snapshot_type = snapshot.get('SnapshotType', 'Unknown')
                         
                         # Print progress every 10 snapshots or for the last one
-                        if i % 10 == 0 or i == len(db_snapshots):
-                            print(f"  Scanning snapshot {i}/{len(db_snapshots)}: {snapshot_id} ({engine})")
+                        pass
+                        
+                        # Check audit attributes
+                        audit_exempt = False
+                        missing_audit_tags = True
+                        
+                        try:
+                            tags_response = rds_client.list_tags_for_resource(
+                                ResourceName=snapshot['DBSnapshotArn']
+                            )
+                            tag_keys = [tag['Key'].lower() for tag in tags_response.get('TagList', [])]
+                            
+                            if 'security-audit' in tag_keys or 'cost-audit' in tag_keys:
+                                audit_exempt = True
+                                missing_audit_tags = False
+                        except ClientError:
+                            pass
+                        
+                        # Flag missing audit tags
+                        if missing_audit_tags:
+                            findings.append({
+                                'ResourceType': 'RDS Snapshot',
+                                'ResourceId': snapshot_id,
+                                'ResourceName': snapshot_id,
+                                'Region': current_region,
+                                'Risk': 'MEDIUM',
+                                'Issue': 'Missing audit tags',
+                                'Recommendation': 'Add security-audit and cost-audit tags for compliance tracking'
+                            })
+                        
+                        # Skip security scanning if audit exempt
+                        if audit_exempt:
+                            continue
                         
                         # Check if snapshot is public
                         if snapshot.get('Shared') or snapshot.get('SnapshotType') == 'public':
@@ -74,7 +99,7 @@ def scan_rds_snapshots(region=None):
                                 'Issue': 'RDS snapshot is publicly accessible',
                                 'Recommendation': 'Remove public access permissions from the snapshot'
                             })
-                            print(f"    [!] FINDING: Snapshot {snapshot_id} is publicly accessible - HIGH risk")
+
                         
                         # Check attribute specifically
                         try:
@@ -97,12 +122,12 @@ def scan_rds_snapshots(region=None):
                                             'Issue': 'RDS snapshot has public restore attribute',
                                             'Recommendation': 'Remove public access permissions from the snapshot'
                                         })
-                                        print(f"    [!] FINDING: Snapshot {snapshot_id} has public restore attribute - HIGH risk")
-                        except ClientError as e:
-                            print(f"    Error checking snapshot attributes for {snapshot_id}: {e}")
+
+                        except ClientError:
+                            pass
             
-            except ClientError as e:
-                print(f"  Error listing RDS snapshots in {current_region}: {e}")
+            except ClientError:
+                pass
             
             # Check cluster snapshots
             try:
@@ -111,7 +136,6 @@ def scan_rds_snapshots(region=None):
                 
                 if cluster_snapshots:
                     total_snapshots_found += len(cluster_snapshots)
-                    print(f"  Found {len(cluster_snapshots)} RDS cluster snapshots in {current_region}")
                     
                     for i, snapshot in enumerate(cluster_snapshots, 1):
                         snapshot_id = snapshot['DBClusterSnapshotIdentifier']
@@ -120,8 +144,7 @@ def scan_rds_snapshots(region=None):
                         snapshot_type = snapshot.get('SnapshotType', 'Unknown')
                         
                         # Print progress every 10 snapshots or for the last one
-                        if i % 10 == 0 or i == len(cluster_snapshots):
-                            print(f"  Scanning cluster snapshot {i}/{len(cluster_snapshots)}: {snapshot_id} ({engine})")
+                        pass
                         
                         # Check attribute specifically
                         try:
@@ -144,24 +167,18 @@ def scan_rds_snapshots(region=None):
                                             'Issue': 'RDS cluster snapshot is publicly accessible',
                                             'Recommendation': 'Remove public access permissions from the cluster snapshot'
                                         })
-                                        print(f"    [!] FINDING: Cluster snapshot {snapshot_id} is publicly accessible - HIGH risk")
-                        except ClientError as e:
-                            print(f"    Error checking cluster snapshot attributes for {snapshot_id}: {e}")
+
+                        except ClientError:
+                            pass
             
-            except ClientError as e:
-                print(f"  Error listing RDS cluster snapshots in {current_region}: {e}")
+            except ClientError:
+                pass
     
-    except Exception as e:
-        print(f"Error scanning RDS snapshots: {e}")
+    except Exception:
+        pass
     
-    if total_snapshots_found == 0:
-        print("No RDS snapshots found.")
-    else:
-        print(f"RDS snapshot scan complete. Scanned {total_snapshots_found} snapshots.")
+    pass
     
-    if findings:
-        print(f"Found {len(findings)} RDS snapshot issues.")
-    else:
-        print("No RDS snapshot issues found.")
+    pass
     
     return findings

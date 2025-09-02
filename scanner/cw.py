@@ -23,17 +23,13 @@ def scan_cloudwatch_logs(region=None):
     """
     findings = []
     
-    print("Starting CloudWatch Logs scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_log_groups_count = 0
@@ -43,8 +39,7 @@ def scan_cloudwatch_logs(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
-                
+                pass
             logs_client = boto3.client('logs', region_name=current_region)
             
             # Get current time for age calculations
@@ -93,7 +88,6 @@ def scan_cloudwatch_logs(region=None):
                             'Issue': 'Log group is not encrypted with KMS',
                             'Recommendation': 'Enable KMS encryption for sensitive log data'
                         })
-                        print(f"    [!] FINDING: Log group {log_group_name} is not encrypted - MEDIUM risk")
                     
                     # Check if retention is set
                     if not retention_days:
@@ -107,7 +101,6 @@ def scan_cloudwatch_logs(region=None):
                             'Issue': 'Log group has no retention policy (logs kept indefinitely)',
                             'Recommendation': 'Set appropriate retention period to control costs'
                         })
-                        print(f"    [!] FINDING: Log group {log_group_name} has no retention policy - MEDIUM risk")
                     elif retention_days > 365:
                         findings.append({
                             'ResourceType': 'CloudWatch Log Group',
@@ -120,7 +113,6 @@ def scan_cloudwatch_logs(region=None):
                             'Issue': f'Log group has excessive retention period ({retention_days} days)',
                             'Recommendation': 'Review retention needs and consider reducing to control costs'
                         })
-                        print(f"    [!] FINDING: Log group {log_group_name} has excessive retention ({retention_days} days) - LOW risk")
                     elif retention_days < 30 and 'security' in log_group_name.lower():
                         findings.append({
                             'ResourceType': 'CloudWatch Log Group',
@@ -133,7 +125,6 @@ def scan_cloudwatch_logs(region=None):
                             'Issue': f'Security-related log group has short retention period ({retention_days} days)',
                             'Recommendation': 'Increase retention period for security logs to at least 90 days'
                         })
-                        print(f"    [!] FINDING: Security log group {log_group_name} has short retention ({retention_days} days) - MEDIUM risk")
                     
                     # Check for recent activity in log group
                     try:
@@ -156,7 +147,6 @@ def scan_cloudwatch_logs(region=None):
                                 'Issue': 'Log group has no log streams',
                                 'Recommendation': 'Delete unused log groups to reduce clutter and costs'
                             })
-                            print(f"    [!] FINDING: Log group {log_group_name} has no log streams - LOW risk")
                         else:
                             last_event_timestamp = streams['logStreams'][0].get('lastEventTimestamp')
                             if last_event_timestamp:
@@ -175,7 +165,6 @@ def scan_cloudwatch_logs(region=None):
                                         'Issue': f'Log group has no activity for {days_since_last_event} days',
                                         'Recommendation': 'Consider deleting inactive log groups to reduce costs'
                                     })
-                                    print(f"    [!] FINDING: Log group {log_group_name} has no activity for {days_since_last_event} days - LOW risk")
                     except ClientError as e:
                         # Skip if we can't check log streams
                         pass
@@ -238,25 +227,12 @@ def scan_cloudwatch_logs(region=None):
                             'Issue': f'Missing security-related metric filters: {", ".join(missing_filters)}',
                             'Recommendation': 'Create metric filters and alarms for security-related events'
                         })
-                        print(f"    [!] FINDING: Missing security metric filters in {current_region}: {', '.join(missing_filters)} - MEDIUM risk")
                 
                 except ClientError as e:
-                    print(f"  Error checking metric filters in {current_region}: {e}")
+                    pass
             
-            else:
                 print(f"  No CloudWatch Log groups found in {current_region}")
-    
     except Exception as e:
-        print(f"Error scanning CloudWatch Logs: {e}")
-    
-    if total_log_groups_count == 0:
-        print("No CloudWatch Log groups found.")
-    else:
-        print(f"CloudWatch Logs scan complete. Scanned {total_log_groups_count} log groups.")
-    
-    if findings:
-        print(f"Found {len(findings)} CloudWatch Logs security issues.")
-    else:
-        print("No CloudWatch Logs security issues found.")
+        pass
     
     return findings

@@ -21,17 +21,13 @@ def scan_waf(region=None):
     """
     findings = []
     
-    print("Starting WAF scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         # Also scan global WAF (WAFv2)
         regions.append('global')
@@ -44,7 +40,7 @@ def scan_waf(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
+                pass
             
             # For WAFv2
             try:
@@ -103,7 +99,6 @@ def scan_waf(region=None):
                                 'Issue': 'WAF Web ACL does not have logging enabled',
                                 'Recommendation': 'Enable logging for WAF Web ACL to monitor and respond to attacks'
                             })
-                            print(f"    [!] FINDING: WAF Web ACL {acl_name} has no logging enabled - MEDIUM risk")
                         
                         # Check for empty rule groups
                         rules = acl_detail.get('WebACL', {}).get('Rules', [])
@@ -117,7 +112,6 @@ def scan_waf(region=None):
                                 'Issue': 'WAF Web ACL does not have any rules configured',
                                 'Recommendation': 'Add rules to the Web ACL to protect against common web attacks'
                             })
-                            print(f"    [!] FINDING: WAF Web ACL {acl_name} has no rules - HIGH risk")
                         
                         # Check for missing AWS managed rule groups
                         managed_rule_found = False
@@ -136,7 +130,6 @@ def scan_waf(region=None):
                                 'Issue': 'WAF Web ACL does not use any AWS managed rule groups',
                                 'Recommendation': 'Add AWS managed rule groups like AWSManagedRulesCommonRuleSet for baseline protection'
                             })
-                            print(f"    [!] FINDING: WAF Web ACL {acl_name} has no managed rule groups - MEDIUM risk")
                         
                         # Check for resource associations
                         try:
@@ -155,7 +148,6 @@ def scan_waf(region=None):
                                     'Issue': 'WAF Web ACL is not associated with any resources',
                                     'Recommendation': 'Associate the Web ACL with resources like ALBs, CloudFront, or API Gateway'
                                 })
-                                print(f"    [!] FINDING: WAF Web ACL {acl_name} has no resource associations - LOW risk")
                         except ClientError:
                             pass
                         
@@ -171,10 +163,9 @@ def scan_waf(region=None):
                                 'Issue': 'WAF Web ACL has a default action of Allow',
                                 'Recommendation': 'Consider changing default action to Block for better security posture'
                             })
-                            print(f"    [!] FINDING: WAF Web ACL {acl_name} has default action Allow - MEDIUM risk")
             
             except ClientError as e:
-                print(f"  Error scanning WAFv2 in {current_region}: {e}")
+                pass
             
             # For WAF Classic (only in regions that support it)
             if current_region not in ['global', 'eu-south-1', 'af-south-1', 'eu-south-2', 'ap-southeast-3', 'ap-southeast-4', 'eu-central-2', 'ap-south-2', 'me-central-1', 'me-south-1', 'il-central-1']:
@@ -212,7 +203,6 @@ def scan_waf(region=None):
                                     'Issue': 'WAF Classic Web ACL does not have any rules configured',
                                     'Recommendation': 'Add rules to the Web ACL or migrate to WAFv2'
                                 })
-                                print(f"    [!] FINDING: WAF Classic Web ACL {acl_name} has no rules - HIGH risk")
                             
                             # Check for default action
                             default_action = acl_detail.get('WebACL', {}).get('DefaultAction', {}).get('Type')
@@ -226,7 +216,6 @@ def scan_waf(region=None):
                                     'Issue': 'WAF Classic Web ACL has a default action of ALLOW',
                                     'Recommendation': 'Consider changing default action to BLOCK or migrate to WAFv2'
                                 })
-                                print(f"    [!] FINDING: WAF Classic Web ACL {acl_name} has default action ALLOW - MEDIUM risk")
                             
                             # Check for resource associations
                             resources = waf_client.list_resources_for_web_acl(WebACLId=acl_id)
@@ -241,7 +230,6 @@ def scan_waf(region=None):
                                     'Issue': 'WAF Classic Web ACL is not associated with any resources',
                                     'Recommendation': 'Associate the Web ACL with resources or migrate to WAFv2'
                                 })
-                                print(f"    [!] FINDING: WAF Classic Web ACL {acl_name} has no resource associations - LOW risk")
                             
                             # Recommend migration to WAFv2
                             findings.append({
@@ -253,22 +241,10 @@ def scan_waf(region=None):
                                 'Issue': 'Using WAF Classic instead of WAFv2',
                                 'Recommendation': 'Migrate to WAFv2 for improved features and security capabilities'
                             })
-                            print(f"    [!] FINDING: WAF Classic Web ACL {acl_name} should be migrated to WAFv2 - LOW risk")
                 
                 except ClientError as e:
-                    print(f"  Error scanning WAF Classic in {current_region}: {e}")
-        
-        if total_acl_count == 0:
-            print("No WAF Web ACLs found.")
-        else:
-            print(f"WAF scan complete. Scanned {total_acl_count} Web ACLs.")
-    
+                    pass
     except Exception as e:
-        print(f"Error scanning WAF: {e}")
-    
-    if findings:
-        print(f"Found {len(findings)} WAF security issues.")
-    else:
-        print("No WAF security issues found.")
+        pass
     
     return findings

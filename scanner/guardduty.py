@@ -24,17 +24,13 @@ def scan_guardduty(region=None):
     """
     findings = []
     
-    print("Starting GuardDuty scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         # Check for organization GuardDuty in us-east-1 (global)
         org_guardduty_exists = False
@@ -72,8 +68,7 @@ def scan_guardduty(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
-                
+                pass
             guardduty_client = boto3.client('guardduty', region_name=current_region)
             
             try:
@@ -91,7 +86,6 @@ def scan_guardduty(region=None):
                         'Issue': f'GuardDuty is not enabled in region {current_region}',
                         'Recommendation': 'Enable GuardDuty to detect threats and suspicious activities'
                     })
-                    print(f"    [!] FINDING: GuardDuty is not enabled in region {current_region} - HIGH risk")
                     continue
                 
                 regions_with_guardduty += 1
@@ -113,7 +107,6 @@ def scan_guardduty(region=None):
                                 'Issue': 'GuardDuty detector is not enabled',
                                 'Recommendation': 'Enable the GuardDuty detector'
                             })
-                            print(f"    [!] FINDING: GuardDuty detector {detector_id} is not enabled - HIGH risk")
                             continue
                         
                         # Check finding publishing frequency
@@ -128,7 +121,6 @@ def scan_guardduty(region=None):
                                 'Issue': 'GuardDuty finding publishing frequency is set to six hours',
                                 'Recommendation': 'Set finding publishing frequency to 15 minutes for faster detection'
                             })
-                            print(f"    [!] FINDING: GuardDuty detector {detector_id} has 6-hour publishing frequency - MEDIUM risk")
                         
                         # Check data sources
                         data_sources = detector.get('DataSources', {})
@@ -145,7 +137,6 @@ def scan_guardduty(region=None):
                                 'Issue': 'GuardDuty S3 protection is not enabled',
                                 'Recommendation': 'Enable S3 protection in GuardDuty'
                             })
-                            print(f"    [!] FINDING: GuardDuty detector {detector_id} has S3 protection disabled - MEDIUM risk")
                         
                         # Check Kubernetes logs if available
                         kubernetes_logs = data_sources.get('Kubernetes', {})
@@ -159,7 +150,6 @@ def scan_guardduty(region=None):
                                 'Issue': 'GuardDuty Kubernetes protection is not enabled',
                                 'Recommendation': 'Enable Kubernetes protection in GuardDuty'
                             })
-                            print(f"    [!] FINDING: GuardDuty detector {detector_id} has Kubernetes protection disabled - MEDIUM risk")
                         
                         # Check Malware Protection if available
                         malware_protection = data_sources.get('MalwareProtection', {})
@@ -173,10 +163,9 @@ def scan_guardduty(region=None):
                                 'Issue': 'GuardDuty Malware Protection is not enabled',
                                 'Recommendation': 'Enable Malware Protection in GuardDuty'
                             })
-                            print(f"    [!] FINDING: GuardDuty detector {detector_id} has Malware Protection disabled - MEDIUM risk")
                     
                     except ClientError as e:
-                        print(f"    Error checking detector {detector_id}: {e}")
+                        pass
                     
                     # Check for active findings
                     try:
@@ -224,10 +213,9 @@ def scan_guardduty(region=None):
                                     'Issue': f'Active GuardDuty finding: {finding_type} (Severity: {severity})',
                                     'Recommendation': 'Investigate and remediate the GuardDuty finding'
                                 })
-                                print(f"    [!] FINDING: Active GuardDuty finding {finding_id}: {title} - HIGH risk")
                     
                     except ClientError as e:
-                        print(f"    Error checking findings for detector {detector_id}: {e}")
+                        pass
                     
                     # Check for EventBridge rules for GuardDuty
                     try:
@@ -244,13 +232,12 @@ def scan_guardduty(region=None):
                                 'Issue': 'No EventBridge rules found for GuardDuty findings',
                                 'Recommendation': 'Create EventBridge rules to automate response to GuardDuty findings'
                             })
-                            print(f"    [!] FINDING: No EventBridge rules for GuardDuty in {current_region} - MEDIUM risk")
                     
                     except ClientError as e:
-                        print(f"    Error checking EventBridge rules: {e}")
+                        pass
             
             except ClientError as e:
-                print(f"  Error scanning GuardDuty in {current_region}: {e}")
+                pass
         
         # Check if GuardDuty is enabled in all regions
         if regions_with_guardduty < len(regions) and not org_guardduty_exists:
@@ -263,14 +250,7 @@ def scan_guardduty(region=None):
                 'Issue': f'GuardDuty is only enabled in {regions_with_guardduty} of {len(regions)} regions',
                 'Recommendation': 'Enable GuardDuty in all regions or use Organization GuardDuty'
             })
-            print(f"    [!] FINDING: GuardDuty is only enabled in {regions_with_guardduty} of {len(regions)} regions - HIGH risk")
-    
     except Exception as e:
-        print(f"Error scanning GuardDuty: {e}")
-    
-    if findings:
-        print(f"Found {len(findings)} GuardDuty security issues.")
-    else:
-        print("No GuardDuty security issues found.")
+        pass
     
     return findings

@@ -22,17 +22,13 @@ def scan_sns(region=None):
     """
     findings = []
     
-    print("Starting SNS scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_topics_count = 0
@@ -42,8 +38,7 @@ def scan_sns(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
-                
+                pass
             sns_client = boto3.client('sns', region_name=current_region)
             
             try:
@@ -85,7 +80,6 @@ def scan_sns(region=None):
                                     'Issue': 'SNS topic is not encrypted with KMS',
                                     'Recommendation': 'Enable server-side encryption with KMS for sensitive topics'
                                 })
-                                print(f"    [!] FINDING: SNS topic {topic_name} is not encrypted - MEDIUM risk")
                             
                             # Check for public access in policy
                             if policy and ('"Principal": "*"' in policy or '"Principal":{"AWS":"*"}' in policy):
@@ -99,7 +93,6 @@ def scan_sns(region=None):
                                     'Issue': 'SNS topic has a policy with public access (Principal: *)',
                                     'Recommendation': 'Restrict the topic policy to specific principals'
                                 })
-                                print(f"    [!] FINDING: SNS topic {topic_name} has public access policy - HIGH risk")
                             
                             # Check for cross-account access
                             if policy:
@@ -116,7 +109,6 @@ def scan_sns(region=None):
                                         'Issue': 'SNS topic may have cross-account access configured',
                                         'Recommendation': 'Review the topic policy to ensure cross-account access is intended'
                                     })
-                                    print(f"    [!] FINDING: SNS topic {topic_name} has potential cross-account access - MEDIUM risk")
                             
                             # Check for HTTPS-only delivery policy
                             delivery_policy = attributes.get('Attributes', {}).get('DeliveryPolicy')
@@ -131,28 +123,15 @@ def scan_sns(region=None):
                                     'Issue': 'SNS topic may allow HTTP (non-encrypted) delivery',
                                     'Recommendation': 'Configure delivery policy to use HTTPS only'
                                 })
-                                print(f"    [!] FINDING: SNS topic {topic_name} may allow HTTP delivery - MEDIUM risk")
                         
                         except ClientError as e:
-                            print(f"    Error checking topic {topic_name}: {e}")
+                            pass
                 
-                else:
                     print(f"  No SNS topics found in {current_region}")
             
             except ClientError as e:
-                print(f"  Error scanning SNS in {current_region}: {e}")
-        
-        if total_topics_count == 0:
-            print("No SNS topics found.")
-        else:
-            print(f"SNS scan complete. Scanned {total_topics_count} topics.")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning SNS: {e}")
-    
-    if findings:
-        print(f"Found {len(findings)} SNS security issues.")
-    else:
-        print("No SNS security issues found.")
+        pass
     
     return findings

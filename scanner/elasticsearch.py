@@ -17,17 +17,13 @@ def scan_elasticsearch_domains(region=None):
     """
     findings = []
     
-    print("Starting Elasticsearch domain scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_domain_count = 0
@@ -37,8 +33,7 @@ def scan_elasticsearch_domains(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
-                
+                pass
             try:
                 es_client = boto3.client('es', region_name=current_region)
                 
@@ -86,7 +81,6 @@ def scan_elasticsearch_domains(region=None):
                                             'Issue': 'Elasticsearch domain is publicly accessible',
                                             'Recommendation': 'Move domain to VPC or restrict access policies'
                                         })
-                                        print(f"    [!] FINDING: Elasticsearch domain {domain_name} is publicly accessible - HIGH risk")
                             
                             # Check if encryption at rest is enabled
                             encryption_at_rest = domain_config.get('EncryptionAtRestOptions', {}).get('Enabled', False)
@@ -101,7 +95,6 @@ def scan_elasticsearch_domains(region=None):
                                     'Issue': 'Elasticsearch domain does not have encryption at rest enabled',
                                     'Recommendation': 'Enable encryption at rest for the domain'
                                 })
-                                print(f"    [!] FINDING: Elasticsearch domain {domain_name} has no encryption at rest - MEDIUM risk")
                             
                             # Check if node-to-node encryption is enabled
                             node_to_node_encryption = domain_config.get('NodeToNodeEncryptionOptions', {}).get('Enabled', False)
@@ -116,7 +109,6 @@ def scan_elasticsearch_domains(region=None):
                                     'Issue': 'Elasticsearch domain does not have node-to-node encryption enabled',
                                     'Recommendation': 'Enable node-to-node encryption for the domain'
                                 })
-                                print(f"    [!] FINDING: Elasticsearch domain {domain_name} has no node-to-node encryption - MEDIUM risk")
                             
                             # Check if HTTPS is enforced
                             enforce_https = domain_config.get('DomainEndpointOptions', {}).get('EnforceHTTPS', False)
@@ -131,7 +123,6 @@ def scan_elasticsearch_domains(region=None):
                                     'Issue': 'Elasticsearch domain does not enforce HTTPS',
                                     'Recommendation': 'Enable HTTPS enforcement for the domain'
                                 })
-                                print(f"    [!] FINDING: Elasticsearch domain {domain_name} does not enforce HTTPS - MEDIUM risk")
                             
                             # Check TLS version
                             tls_security_policy = domain_config.get('DomainEndpointOptions', {}).get('TLSSecurityPolicy', '')
@@ -146,28 +137,15 @@ def scan_elasticsearch_domains(region=None):
                                     'Issue': f'Elasticsearch domain uses outdated TLS policy: {tls_security_policy or "default"}',
                                     'Recommendation': 'Update to at least Policy-Min-TLS-1-2-2019-07'
                                 })
-                                print(f"    [!] FINDING: Elasticsearch domain {domain_name} uses outdated TLS policy - MEDIUM risk")
                         
                         except ClientError as e:
-                            print(f"    Error checking domain {domain_name}: {e}")
+                            pass
             
             except ClientError as e:
                 if 'AccessDeniedException' in str(e) or 'UnrecognizedClientException' in str(e):
                     print(f"  Elasticsearch service not available or not accessible in {current_region}")
-                else:
-                    print(f"  Error scanning Elasticsearch domains in {current_region}: {e}")
-        
-        if total_domain_count == 0:
-            print("No Elasticsearch domains found.")
-        else:
-            print(f"Elasticsearch domain scan complete. Scanned {total_domain_count} domains.")
-    
+                    pass
     except Exception as e:
-        print(f"Error scanning Elasticsearch domains: {e}")
-    
-    if findings:
-        print(f"Found {len(findings)} Elasticsearch domain issues.")
-    else:
-        print("No Elasticsearch domain issues found.")
+        pass
     
     return findings

@@ -25,27 +25,22 @@ def scan_ec2_instances(region=None):
     """
     findings = []
     
-    print("Starting EC2 instance scan...")
+
     
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_instance_count = 0
         
         for current_region in regions:
             region_count += 1
-            if len(regions) > 1:
-                print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
-            else:
-                print(f"Scanning region: {current_region}")
+            pass
                 
             regional_client = boto3.client('ec2', region_name=current_region)
             ssm_client = boto3.client('ssm', region_name=current_region)
@@ -73,7 +68,6 @@ def scan_ec2_instances(region=None):
                 
                 if instance_count > 0:
                     total_instance_count += instance_count
-                    print(f"  Found {instance_count} EC2 instances in {current_region}")
                     
                     # Get SSM managed instances for comparison
                     try:
@@ -84,9 +78,7 @@ def scan_ec2_instances(region=None):
                             ssm_instances.extend(page.get('InstanceInformationList', []))
                         
                         ssm_instance_ids = [instance.get('InstanceId') for instance in ssm_instances]
-                        print(f"  Found {len(ssm_instance_ids)} instances managed by SSM")
-                    except ClientError as e:
-                        print(f"  Error getting SSM instances: {e}")
+                    except ClientError:
                         ssm_instance_ids = []
                     
                     for i, instance in enumerate(instances, 1):
@@ -95,16 +87,37 @@ def scan_ec2_instances(region=None):
                         launch_time = instance.get('LaunchTime')
                         state = instance.get('State', {}).get('Name', 'unknown')
                         
-                        # Get instance name from tags
+                        # Get instance name and check audit attributes
                         instance_name = instance_id
+                        audit_exempt = False
+                        missing_audit_tags = True
+                        
                         for tag in instance.get('Tags', []):
-                            if tag.get('Key') == 'Name':
+                            key = tag.get('Key', '').lower()
+                            if key == 'name':
                                 instance_name = tag.get('Value')
-                                break
+                            elif key in ['security-audit', 'cost-audit']:
+                                audit_exempt = True
+                                missing_audit_tags = False
+                        
+                        # Flag missing audit tags
+                        if missing_audit_tags:
+                            findings.append({
+                                'ResourceType': 'EC2 Instance',
+                                'ResourceId': instance_id,
+                                'ResourceName': instance_name,
+                                'Region': current_region,
+                                'Risk': 'MEDIUM',
+                                'Issue': 'Missing audit tags',
+                                'Recommendation': 'Add security-audit and cost-audit tags for compliance tracking'
+                            })
+                        
+                        # Skip security scanning if audit exempt
+                        if audit_exempt:
+                            continue
                         
                         # Print progress every 10 instances or for the last one
-                        if i % 10 == 0 or i == instance_count:
-                            print(f"  Progress: {i}/{instance_count}")
+                        pass
                         
                         # Check for stopped instances
                         if state == 'stopped':
@@ -142,7 +155,7 @@ def scan_ec2_instances(region=None):
                                 'Issue': f'Instance is in stopped state{stopped_info} but still incurring costs for EBS volumes',
                                 'Recommendation': 'Terminate unused instances or create AMI and terminate to save costs'
                             })
-                            print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) is stopped{stopped_info} - MEDIUM risk")
+
                             
                             # Skip other checks for stopped instances
                             continue
@@ -164,7 +177,7 @@ def scan_ec2_instances(region=None):
                                 'Issue': 'Instance is using IMDSv1 (HttpTokens: optional)',
                                 'Recommendation': 'Configure instance to use IMDSv2 by setting HttpTokens to required'
                             })
-                            print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) is using IMDSv1 - HIGH risk")
+
                         
                         # Check if instance has SSM agent installed
                         if instance_id not in ssm_instance_ids:
@@ -179,7 +192,7 @@ def scan_ec2_instances(region=None):
                                 'Issue': 'Instance is not managed by SSM',
                                 'Recommendation': 'Install and configure SSM agent for centralized management and patching'
                             })
-                            print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) is not managed by SSM - MEDIUM risk")
+
                         
                         # Check for public IP address (IPv4)
                         public_ip = instance.get('PublicIpAddress')
@@ -196,7 +209,7 @@ def scan_ec2_instances(region=None):
                                 'Issue': 'Instance has a public IPv4 address',
                                 'Recommendation': 'Use private subnets with NAT gateway or VPC endpoints for private access'
                             })
-                            print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) has public IPv4 {public_ip} - MEDIUM risk")
+
                         
                         # Check for IPv6 addresses
                         network_interfaces = instance.get('NetworkInterfaces', [])
@@ -221,7 +234,7 @@ def scan_ec2_instances(region=None):
                                 'Issue': f'Instance has {len(ipv6_addresses)} public IPv6 address(es)',
                                 'Recommendation': 'Consider disabling IPv6 if not required or implement security controls for IPv6 traffic'
                             })
-                            print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) has {len(ipv6_addresses)} IPv6 addresses - MEDIUM risk")
+
                         
                         # Check for unencrypted EBS volumes
                         block_devices = instance.get('BlockDeviceMappings', [])
@@ -252,7 +265,7 @@ def scan_ec2_instances(region=None):
                                 'Issue': f'Instance has {len(unencrypted_volumes)} unencrypted EBS volumes',
                                 'Recommendation': 'Create encrypted snapshots and replace volumes with encrypted ones'
                             })
-                            print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) has {len(unencrypted_volumes)} unencrypted volumes - MEDIUM risk")
+
                         
                         # Check instance age
                         if launch_time:
@@ -272,7 +285,7 @@ def scan_ec2_instances(region=None):
                                     'Issue': f'Instance has been running for {instance_age_days} days',
                                     'Recommendation': 'Review if instance is still needed or should be replaced with newer generation'
                                 })
-                                print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) has been running for {instance_age_days} days - LOW risk")
+
                         
                         # Check for detailed monitoring
                         monitoring_state = instance.get('Monitoring', {}).get('State', 'disabled')
@@ -288,7 +301,7 @@ def scan_ec2_instances(region=None):
                                 'Issue': 'Detailed monitoring is not enabled',
                                 'Recommendation': 'Enable detailed monitoring for better visibility and alerting'
                             })
-                            print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) does not have detailed monitoring enabled - LOW risk")
+
                         
                         # Check for termination protection
                         try:
@@ -310,9 +323,8 @@ def scan_ec2_instances(region=None):
                                     'Issue': 'Termination protection is not enabled',
                                     'Recommendation': 'Enable termination protection for critical instances'
                                 })
-                                print(f"    [!] FINDING: Instance {instance_id} ({instance_name}) does not have termination protection - LOW risk")
+
                         except ClientError:
-                            # Skip if attribute can't be described
                             pass
                 
                 # Check for unused AMIs
@@ -321,7 +333,6 @@ def scan_ec2_instances(region=None):
                     images = owned_images.get('Images', [])
                     
                     if images:
-                        print(f"  Checking {len(images)} owned AMIs for usage")
                         
                         for image in images:
                             image_id = image.get('ImageId')
@@ -367,27 +378,20 @@ def scan_ec2_instances(region=None):
                                         'Issue': f'AMI is not being used by any instances{age_info}',
                                         'Recommendation': 'Deregister unused AMIs to reduce storage costs'
                                     })
-                                    print(f"    [!] FINDING: AMI {image_id} ({image_name}) is not being used - LOW risk")
+
                             except ClientError:
-                                # Skip if instances can't be described
                                 pass
-                except ClientError as e:
-                    print(f"  Error checking AMIs: {e}")
+                except ClientError:
+                    pass
             
-            except ClientError as e:
-                print(f"  Error scanning EC2 instances in {current_region}: {e}")
+            except ClientError:
+                pass
         
-        if total_instance_count == 0:
-            print("No EC2 instances found.")
-        else:
-            print(f"EC2 scan complete. Scanned {total_instance_count} instances.")
+        pass
     
-    except Exception as e:
-        print(f"Error scanning EC2 instances: {e}")
+    except Exception:
+        pass
     
-    if findings:
-        print(f"Found {len(findings)} EC2 security issues.")
-    else:
-        print("No EC2 security issues found.")
+    pass
     
     return findings

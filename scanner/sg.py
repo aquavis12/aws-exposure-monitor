@@ -50,17 +50,13 @@ def scan_security_groups(region=None):
         3000: 'Grafana'
     }
     
-    print("Starting security group scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_sg_count = 0
@@ -71,8 +67,7 @@ def scan_security_groups(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
-                
+                pass
             regional_client = boto3.client('ec2', region_name=current_region)
             
             try:
@@ -174,7 +169,6 @@ def scan_security_groups(region=None):
                                             })
                                             
                                             # Print finding immediately
-                                            print(f"    [!] FINDING: {sg_name} ({sg_id}) - Public access to {sensitive_ports[port]} (port {port}) - {risk_level} risk")
                                             
                                 elif ip_protocol == '-1':  # All traffic
                                     findings.append({
@@ -191,7 +185,6 @@ def scan_security_groups(region=None):
                                     })
                                     
                                     # Print finding immediately
-                                    print(f"    [!] FINDING: {sg_name} ({sg_id}) - Public access to ALL ports and protocols - CRITICAL risk")
                                     
                                 elif from_port is None and to_port is None and ip_protocol != 'icmp':
                                     # Protocol-specific rule without port restrictions
@@ -209,7 +202,6 @@ def scan_security_groups(region=None):
                                     })
                                     
                                     # Print finding immediately
-                                    print(f"    [!] FINDING: {sg_name} ({sg_id}) - Public access to all ports on protocol {ip_protocol} - HIGH risk")
                         
                         # Check specifically for IPv6 rules
                         for rule in sg.get('IpPermissions', []):
@@ -241,7 +233,6 @@ def scan_security_groups(region=None):
                                         'Issue': 'Security group allows public IPv6 access (::/0) to ALL ports and protocols',
                                         'Recommendation': 'Restrict IPv6 access to specific ports and address ranges'
                                     })
-                                    print(f"    [!] FINDING: {sg_name} ({sg_id}) - Public IPv6 access to ALL ports - CRITICAL risk")
                                 
                                 elif from_port is not None and to_port is not None:
                                     # Check for common IPv6-specific services
@@ -279,22 +270,10 @@ def scan_security_groups(region=None):
                                             'Issue': f'Security group allows public IPv6 access (::/0) to {service_name} (port {from_port})',
                                             'Recommendation': f'Restrict IPv6 access to specific address ranges for {service_name}'
                                         })
-                                        print(f"    [!] FINDING: {sg_name} ({sg_id}) - Public IPv6 access to {service_name} - {risk_level} risk")
             
             except ClientError as e:
-                print(f"  Error scanning security groups in {current_region}: {e}")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning security groups: {e}")
-    
-    if total_sg_count == 0:
-        print("No security groups found (excluding default security groups).")
-    else:
-        print(f"Security group scan complete. Scanned {total_sg_count} security groups across {regions_with_sgs} regions.")
-    
-    if findings:
-        print(f"Found {len(findings)} security group issues.")
-    else:
-        print("No security group issues found.")
+        pass
     
     return findings

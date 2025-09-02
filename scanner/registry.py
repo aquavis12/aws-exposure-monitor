@@ -1,25 +1,21 @@
 """
 Scanner Registry Module - Manages all available scanners
 """
-import os
 import importlib
-import inspect
 from typing import Dict, Callable, Optional, List, Any
+from functools import lru_cache
 
 # Define scanner registry type
 ScannerRegistry = Dict[str, Dict[str, Any]]
 
 def load_scanner(module_name: str, function_name: str) -> Optional[Callable]:
     """
-    Dynamically load a scanner function from a module
-    
-    Args:
-        module_name (str): Name of the module to import
-        function_name (str): Name of the function to load
-        
-    Returns:
-        Optional[Callable]: The scanner function if available, None otherwise
+    Safely load a scanner function from a module
     """
+    # Validate module name to prevent code injection
+    if not module_name.replace('_', '').replace('.', '').isalnum():
+        return None
+    
     try:
         module = importlib.import_module(f"scanner.{module_name}")
         if hasattr(module, function_name):
@@ -28,6 +24,7 @@ def load_scanner(module_name: str, function_name: str) -> Optional[Callable]:
         pass
     return None
 
+@lru_cache(maxsize=1)
 def get_available_scanners() -> ScannerRegistry:
     """
     Get all available scanners
@@ -110,13 +107,7 @@ def get_available_scanners() -> ScannerRegistry:
             'description': 'Scans CloudWatch Logs for encryption, retention, and security metric filters',
             'category': 'Security'
         },
-        'config': {
-            'name': 'AWS Config',
-            'module': 'config',
-            'function': 'scan_aws_config',
-            'description': 'Scans AWS Config for proper configuration and recording of resources',
-            'category': 'Security'
-        },
+
         'cloudtrail': {
             'name': 'CloudTrail',
             'module': 'cloudtrail',
@@ -243,36 +234,38 @@ def get_available_scanners() -> ScannerRegistry:
             'category': 'Networking'
         },
         
-        # Cost Category
-        'cost': {
-            'name': 'Cost Optimization',
-            'module': 'cost_scanner',
-            'function': 'scan_cost_optimization',
-            'description': 'Scans AWS resources for cost optimization opportunities',
-            'category': 'Cost'
+
+        
+        # Additional Storage
+        'efs': {
+            'name': 'EFS File Systems',
+            'module': 'efs',
+            'function': 'scan_efs',
+            'description': 'Scans EFS file systems for encryption and access issues',
+            'category': 'Storage'
         },
         
-        # Template and code scanners
-        'templates': {
-            'name': 'Templates and Code',
-            'module': 'template_scan.scanner',
-            'function': 'scan_templates',
-            'description': 'Scans CloudFormation templates, CDK, Terraform, Pulumi, OpenTofu, and AWS SDK code for security issues',
-            'category': 'Security'
+        # Additional Database
+        'redshift': {
+            'name': 'Redshift Clusters',
+            'module': 'redshift',
+            'function': 'scan_redshift',
+            'description': 'Scans Redshift clusters for public access and encryption issues',
+            'category': 'Database'
         },
-        'cftemplate': {
-            'name': 'CloudFormation Templates',
-            'module': 'template_scan.cftemplate',
-            'function': 'scan_cloudformation_templates',
-            'description': 'Scans CloudFormation templates for security misconfigurations and best practices',
-            'category': 'Security'
+        'elasticache': {
+            'name': 'ElastiCache Clusters',
+            'module': 'elasticache',
+            'function': 'scan_elasticache',
+            'description': 'Scans ElastiCache clusters for encryption and security issues',
+            'category': 'Database'
         },
-        'cdk': {
-            'name': 'CDK Code',
-            'module': 'template_scan.cdk_scan',
-            'function': 'scan_cdk_code',
-            'description': 'Scans AWS CDK code for security issues and misconfigurations',
-            'category': 'Security'
+        'opensearch': {
+            'name': 'OpenSearch Domains',
+            'module': 'opensearch',
+            'function': 'scan_opensearch',
+            'description': 'Scans OpenSearch domains for VPC, encryption, and HTTPS issues',
+            'category': 'Database'
         },
         'terraform': {
             'name': 'Terraform Code',
@@ -281,27 +274,9 @@ def get_available_scanners() -> ScannerRegistry:
             'description': 'Scans Terraform code for AWS security issues and misconfigurations',
             'category': 'Security'
         },
-        'sdk': {
-            'name': 'AWS SDK Code',
-            'module': 'template_scan.sdk_scan',
-            'function': 'scan_sdk_code',
-            'description': 'Scans AWS SDK code for security issues like hardcoded credentials and insecure configurations',
-            'category': 'Security'
-        },
-        'pulumi': {
-            'name': 'Pulumi Code',
-            'module': 'template_scan.pulumi_scan',
-            'function': 'scan_pulumi_code',
-            'description': 'Scans Pulumi code for AWS security issues and misconfigurations',
-            'category': 'Security'
-        },
-        'opentofu': {
-            'name': 'OpenTofu Code',
-            'module': 'template_scan.opentofu_scan',
-            'function': 'scan_opentofu_code',
-            'description': 'Scans OpenTofu code for AWS security issues and misconfigurations',
-            'category': 'Security'
-        }
+
+
+
     }
     
     # Load all scanner functions

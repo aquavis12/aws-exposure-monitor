@@ -1,55 +1,35 @@
-scanner/__pycache__/ebs.cpython-311.pyc
-scanner/__pycache__/rds.cpython-311.pyc
-scanner/__pycache__/s3.cpython-311.pyc
-scanner/__pycache__/sg.cpython-311.pyc
-notifier/__pycache__/slack.cpython-311.pyc
-remediator/__pycache__/s3.cpython-311.pyc
-scanner/__pycache__/amis.cpython-311.pyc
-reporter/__pycache__/console_reporter.cpython-311.pyc
-remediator/__pycache__/ebs.cpython-311.pyc
-notifier/__pycache__/teams.cpython-311.pyc
-reporter/__pycache__/__init__.cpython-311.pyc
-reporter/__pycache__/html_reporter.cpython-311.pyc
-scanner/__pycache__/api.cpython-311.pyc
-scanner/__pycache__/cloudfront.cpython-311.pyc
-scanner/__pycache__/eip.cpython-311.pyc
-scanner/__pycache__/elb.cpython-311.pyc
-scanner/__pycache__/rds_instances.cpython-311.pyc
-scanner/__pycache__/elasticsearch.cpython-311.pyc
-scanner/__pycache__/ecr.cpython-311.pyc
-scanner/__pycache__/lambda_scanner.cpython-311.pyc
-report.html
-scanner/__pycache__/iam.cpython-311.pyc
+# Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
 
-scanner/__pycache__/ec2.cpython-311.pyc
+# Reports
+*.html
+*.csv
+*.json
+cost_optimization_report.*
 
-scanner/__pycache__/secrets.cpython-311.pyc
-scanner/__pycache__/cw.cpython-311.pyc
-scanner/__pycache__/registry.cpython-311.pyc
-scanner/__pycache__/__init__.cpython-311.pyc
-scanner/__pycache__/cloudtrail.cpython-311.pyc
-scanner/__pycache__/config.cpython-311.pyc
-scanner/__pycache__/guardduty.cpython-311.pyc
-scanner/__pycache__/vpc.cpython-311.pyc
-scanner/__pycache__/sqs.cpython-311.pyc
-scanner/__pycache__/sns.cpython-311.pyc
-scanner/__pycache__/dynamodb.cpython-311.pyc
-reporter/__pycache__/security_score.cpython-311.pyc
-reporter/__pycache__/csv_reporter.cpython-311.pyc
-reporter/__pycache__/json_reporter.cpython-311.pyc
-scanner/__pycache__/aurora.cpython-311.pyc
-scanner/template_scan/__pycache__/scanner.cpython-311.pyc
-scanner/template_scan/__pycache__/terraform_scan.cpython-311.pyc
-scanner/template_scan/__pycache__/sdk_scan.cpython-311.pyc
-scanner/template_scan/__pycache__/pulumi_scan.cpython-311.pyc
-.gitignore
-scanner/template_scan/__pycache__/cftemplate.cpython-311.pyc
-scanner/template_scan/__pycache__/cdk_scan.cpython-311.pyc
-scanner/template_scan/__pycache__/opentofu_scan.cpython-311.pyc
-scanner/template_scan/__pycache__/__init__.cpython-311.pyc
-scanner/__pycache__/waf.cpython-311.pyc
-scanner/__pycache__/lightsail.cpython-311.pyc
-scanner/__pycache__/cost_scanner.cpython-311.pyc
-scanner/__pycache__/profile_detector.cpython-311.pyc
-scanner/__pycache__/secrets_scanner.cpython-311.pyc
-scanner/__pycache__/cost_explorer.cpython-311.pyc
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Virtual environments
+venv/
+env/
+.env
+
+# Distribution
+build/
+dist/
+*.egg-info/

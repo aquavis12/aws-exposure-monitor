@@ -23,17 +23,13 @@ def scan_aurora_clusters(region=None):
     """
     findings = []
     
-    print("Starting Aurora cluster scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_cluster_count = 0
@@ -43,8 +39,7 @@ def scan_aurora_clusters(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
-                
+                pass
             rds_client = boto3.client('rds', region_name=current_region)
             
             try:
@@ -89,7 +84,6 @@ def scan_aurora_clusters(region=None):
                                 'Issue': 'Aurora cluster is publicly accessible',
                                 'Recommendation': 'Disable public accessibility and use private subnets with VPC endpoints'
                             })
-                            print(f"    [!] FINDING: Aurora cluster {cluster_id} ({cluster_name}) is publicly accessible - HIGH risk")
                         
                         # Check for encryption at rest
                         if not cluster.get('StorageEncrypted', False):
@@ -104,7 +98,6 @@ def scan_aurora_clusters(region=None):
                                 'Issue': 'Aurora cluster is not encrypted at rest',
                                 'Recommendation': 'Enable encryption at rest for Aurora clusters'
                             })
-                            print(f"    [!] FINDING: Aurora cluster {cluster_id} ({cluster_name}) is not encrypted - HIGH risk")
                         
                         # Check backup retention period
                         backup_retention = cluster.get('BackupRetentionPeriod', 0)
@@ -120,7 +113,6 @@ def scan_aurora_clusters(region=None):
                                 'Issue': f'Aurora cluster has short backup retention period ({backup_retention} days)',
                                 'Recommendation': 'Increase backup retention period to at least 7 days'
                             })
-                            print(f"    [!] FINDING: Aurora cluster {cluster_id} ({cluster_name}) has short backup retention - MEDIUM risk")
                         
                         # Check for deletion protection
                         if not cluster.get('DeletionProtection', False):
@@ -135,7 +127,6 @@ def scan_aurora_clusters(region=None):
                                 'Issue': 'Aurora cluster does not have deletion protection enabled',
                                 'Recommendation': 'Enable deletion protection for production Aurora clusters'
                             })
-                            print(f"    [!] FINDING: Aurora cluster {cluster_id} ({cluster_name}) has no deletion protection - MEDIUM risk")
                         
                         # Check for outdated engine versions
                         if engine == 'aurora-mysql':
@@ -152,7 +143,6 @@ def scan_aurora_clusters(region=None):
                                     'Issue': f'Aurora MySQL cluster is using outdated engine version {engine_version}',
                                     'Recommendation': 'Upgrade to the latest Aurora MySQL version for security updates'
                                 })
-                                print(f"    [!] FINDING: Aurora cluster {cluster_id} ({cluster_name}) uses outdated engine - MEDIUM risk")
                         elif engine == 'aurora-postgresql':
                             major_version = engine_version.split('.')[0]
                             if int(major_version) < 11:
@@ -167,7 +157,6 @@ def scan_aurora_clusters(region=None):
                                     'Issue': f'Aurora PostgreSQL cluster is using outdated engine version {engine_version}',
                                     'Recommendation': 'Upgrade to the latest Aurora PostgreSQL version for security updates'
                                 })
-                                print(f"    [!] FINDING: Aurora cluster {cluster_id} ({cluster_name}) uses outdated engine - MEDIUM risk")
                         
                         # Check for IAM authentication
                         if not cluster.get('IAMDatabaseAuthenticationEnabled', False):
@@ -182,7 +171,6 @@ def scan_aurora_clusters(region=None):
                                 'Issue': 'Aurora cluster does not have IAM authentication enabled',
                                 'Recommendation': 'Enable IAM authentication for better access control'
                             })
-                            print(f"    [!] FINDING: Aurora cluster {cluster_id} ({cluster_name}) has no IAM auth - LOW risk")
                         
                         # Check for enhanced monitoring
                         instances = rds_client.describe_db_instances(
@@ -205,22 +193,10 @@ def scan_aurora_clusters(region=None):
                                     'Issue': 'Aurora instance does not have enhanced monitoring enabled',
                                     'Recommendation': 'Enable enhanced monitoring for better visibility'
                                 })
-                                print(f"    [!] FINDING: Aurora instance {instance_id} has no enhanced monitoring - LOW risk")
             
             except ClientError as e:
-                print(f"  Error scanning Aurora clusters in {current_region}: {e}")
-        
-        if total_cluster_count == 0:
-            print("No Aurora clusters found.")
-        else:
-            print(f"Aurora scan complete. Scanned {total_cluster_count} clusters.")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning Aurora clusters: {e}")
-    
-    if findings:
-        print(f"Found {len(findings)} Aurora security issues.")
-    else:
-        print("No Aurora security issues found.")
+        pass
     
     return findings

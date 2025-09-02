@@ -41,8 +41,6 @@ def scan_s3_for_secrets(region=None):
     """
     findings = []
     
-    print("Starting S3 secrets scan...")
-    
     # S3 is a global service, but we can filter by region
     s3_client = boto3.client('s3')
     
@@ -64,10 +62,8 @@ def scan_s3_for_secrets(region=None):
                 except Exception:
                     # Skip buckets we can't determine the region for
                     pass
-            print(f"Found {len(buckets)} S3 buckets in region {region}")
         else:
             buckets = all_buckets
-            print(f"Found {len(buckets)} S3 buckets across all regions")
         
         # Scan a sample of objects from each bucket
         for i, bucket in enumerate(buckets, 1):
@@ -125,19 +121,16 @@ def scan_s3_for_secrets(region=None):
                                     'Issue': f'Found {secret_type} in S3 object',
                                     'Recommendation': 'Remove hardcoded secrets from files and use AWS Secrets Manager or Parameter Store instead'
                                 })
-                                print(f"    [!] FINDING: Found {secret_type} in {bucket_name}/{key}")
                                 break  # Only report one finding per file to avoid duplicates
                     
                     except Exception as e:
-                        print(f"    Error reading object {key}: {e}")
+                        pass
             
             except Exception as e:
-                print(f"  Error scanning bucket {bucket_name}: {e}")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning S3 buckets for secrets: {e}")
+        pass
     
-    print(f"S3 secrets scan complete. Found {len(findings)} issues.")
     return findings
 
 def scan_api_gateway_for_secrets(region=None):
@@ -152,8 +145,6 @@ def scan_api_gateway_for_secrets(region=None):
     """
     findings = []
     
-    print("Starting API Gateway secrets scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
@@ -163,7 +154,6 @@ def scan_api_gateway_for_secrets(region=None):
             regions = [r['RegionName'] for r in ec2_client.describe_regions()['Regions']]
         
         for current_region in regions:
-            print(f"Scanning API Gateway in region: {current_region}")
             
             try:
                 apigw_client = boto3.client('apigateway', region_name=current_region)
@@ -196,7 +186,6 @@ def scan_api_gateway_for_secrets(region=None):
                                             'Issue': f'Found {secret_type} in API Gateway stage variable',
                                             'Recommendation': 'Remove hardcoded secrets from API Gateway stage variables and use AWS Secrets Manager or Parameter Store instead'
                                         })
-                                        print(f"    [!] FINDING: Found {secret_type} in API Gateway {api_name}/{stage_name} variable {var_name}")
                     
                     # Get resources and methods
                     resources = apigw_client.get_resources(restApiId=api_id)['items']
@@ -226,7 +215,6 @@ def scan_api_gateway_for_secrets(region=None):
                                                     'Issue': f'Found {secret_type} in API Gateway integration URI',
                                                     'Recommendation': 'Remove hardcoded secrets from API Gateway integration URIs and use AWS Secrets Manager or Parameter Store instead'
                                                 })
-                                                print(f"    [!] FINDING: Found {secret_type} in API Gateway {api_name} integration URI")
                                     
                                     # Check request templates for secrets
                                     if 'requestTemplates' in integration:
@@ -242,19 +230,16 @@ def scan_api_gateway_for_secrets(region=None):
                                                         'Issue': f'Found {secret_type} in API Gateway request template',
                                                         'Recommendation': 'Remove hardcoded secrets from API Gateway request templates and use AWS Secrets Manager or Parameter Store instead'
                                                     })
-                                                    print(f"    [!] FINDING: Found {secret_type} in API Gateway {api_name} request template")
                                 
                                 except ClientError:
                                     # Skip if we can't get the integration
                                     pass
             
             except Exception as e:
-                print(f"  Error scanning API Gateway in {current_region}: {e}")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning API Gateway for secrets: {e}")
+        pass
     
-    print(f"API Gateway secrets scan complete. Found {len(findings)} issues.")
     return findings
 
 def scan_rds_for_secrets(region=None):
@@ -269,8 +254,6 @@ def scan_rds_for_secrets(region=None):
     """
     findings = []
     
-    print("Starting RDS parameter groups scan for secrets...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
@@ -280,7 +263,6 @@ def scan_rds_for_secrets(region=None):
             regions = [r['RegionName'] for r in ec2_client.describe_regions()['Regions']]
         
         for current_region in regions:
-            print(f"Scanning RDS parameter groups in region: {current_region}")
             
             try:
                 rds_client = boto3.client('rds', region_name=current_region)
@@ -326,18 +308,15 @@ def scan_rds_for_secrets(region=None):
                                             'Issue': f'Found {secret_type} in RDS parameter value',
                                             'Recommendation': 'Remove hardcoded secrets from RDS parameters and use AWS Secrets Manager instead'
                                         })
-                                        print(f"    [!] FINDING: Found {secret_type} in RDS parameter group {pg_name}, parameter {param_name}")
                     
                     except Exception as e:
-                        print(f"    Error getting parameters for group {pg_name}: {e}")
+                        pass
             
             except Exception as e:
-                print(f"  Error scanning RDS in {current_region}: {e}")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning RDS for secrets: {e}")
+        pass
     
-    print(f"RDS secrets scan complete. Found {len(findings)} issues.")
     return findings
 
 def scan_for_secrets(region=None):
@@ -352,8 +331,6 @@ def scan_for_secrets(region=None):
     """
     findings = []
     
-    print("Starting comprehensive secrets scan...")
-    
     # Scan S3 buckets
     s3_findings = scan_s3_for_secrets(region)
     findings.extend(s3_findings)
@@ -365,6 +342,4 @@ def scan_for_secrets(region=None):
     # Scan RDS parameter groups
     rds_findings = scan_rds_for_secrets(region)
     findings.extend(rds_findings)
-    
-    print(f"Secrets scan complete. Found {len(findings)} issues.")
     return findings

@@ -5,7 +5,7 @@ import os
 import json
 from datetime import datetime
 from jinja2 import Template
-from reporter.security_score import calculate_security_score
+
 
 
 def generate_html_report(findings, output_path=None):
@@ -89,8 +89,8 @@ def generate_html_report(findings, output_path=None):
             regions[region] = 0
         regions[region] += 1
     
-    # Calculate security score
-    security_score = calculate_security_score(findings)
+    # Remove security score calculation
+    security_score = {'score': 0, 'label': 'N/A', 'description': 'Security scoring disabled', 'css_class': 'score-disabled'}
     
     # Prepare data for the template
     template_data = {
@@ -545,17 +545,7 @@ def generate_html_report(findings, output_path=None):
     </header>
     
     <div class="container">
-        <!-- Security Score Section -->
-        <div class="security-score-container">
-            <div class="security-score-title">Security Score</div>
-            <div class="security-score {{ security_score.css_class }}">{{ security_score.score }}</div>
-            <div class="score-label">{{ security_score.label }}</div>
-            <div class="score-description">{{ security_score.description }}</div>
-            <div class="score-meter">
-                <div class="score-meter-fill" style="width: {{ security_score.score }}%"></div>
-                <div class="score-marker" style="left: {{ security_score.score }}%"></div>
-            </div>
-        </div>
+
         
         <div class="summary-grid">
             <div class="summary-card card-total">

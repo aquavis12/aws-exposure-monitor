@@ -17,17 +17,13 @@ def scan_api_gateways(region=None):
     """
     findings = []
     
-    print("Starting API Gateway scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_apis_found = 0
@@ -37,7 +33,7 @@ def scan_api_gateways(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
+                pass
                 
             # Check REST APIs
             try:
@@ -89,12 +85,11 @@ def scan_api_gateways(region=None):
                                                 'Issue': f'API Gateway endpoint {resource_path} ({method_name}) has no authorization',
                                                 'Recommendation': 'Add authorization (IAM, Cognito, Lambda authorizer) or API key requirement'
                                             })
-                                            print(f"    [!] FINDING: API {api_name} endpoint {resource_path} ({method_name}) has no authorization - HIGH risk")
                                     except ClientError as e:
-                                        print(f"    Error checking method {method_name} for resource {resource_path}: {e}")
+                                        pass
             
             except ClientError as e:
-                print(f"  Error scanning API Gateway REST APIs in {current_region}: {e}")
+                pass
             
             # Check HTTP APIs (API Gateway v2)
             try:
@@ -135,22 +130,10 @@ def scan_api_gateways(region=None):
                                     'Issue': f'API Gateway HTTP route {route_key} has no authorization',
                                     'Recommendation': 'Add authorization (JWT, IAM, Lambda authorizer) or API key requirement'
                                 })
-                                print(f"    [!] FINDING: HTTP API {api_name} route {route_key} has no authorization - HIGH risk")
             
             except ClientError as e:
-                print(f"  Error scanning API Gateway HTTP APIs in {current_region}: {e}")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning API Gateway endpoints: {e}")
-    
-    if total_apis_found == 0:
-        print("No API Gateway APIs found.")
-    else:
-        print(f"API Gateway scan complete. Scanned {total_apis_found} APIs.")
-    
-    if findings:
-        print(f"Found {len(findings)} API Gateway issues.")
-    else:
-        print("No API Gateway issues found.")
+        pass
     
     return findings

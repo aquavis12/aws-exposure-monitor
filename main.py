@@ -10,6 +10,7 @@ import sys
 import boto3
 from datetime import datetime
 from textwrap import wrap
+from pathlib import Path
 
 # Import scanner registry
 from scanner.registry import (
@@ -44,7 +45,6 @@ try:
     from reporter.html_reporter import generate_html_report
 except ImportError:
     def generate_html_report(findings, output_path=None):
-        print("HTML report generation requires Jinja2. Install with: pip install jinja2")
         return None
 
 # Import new reporter modules
@@ -52,14 +52,12 @@ try:
     from reporter.csv_reporter import generate_csv_report
 except ImportError:
     def generate_csv_report(findings, output_path=None):
-        print("CSV report generation requires csv module. Install with: pip install csv")
         return None
 
 try:
     from reporter.json_reporter import generate_json_report
 except ImportError:
     def generate_json_report(findings, output_path=None):
-        print("JSON report generation requires json module. Install with: pip install json")
         return None
 
 
@@ -100,26 +98,10 @@ def parse_args():
     parser.add_argument('--json-report',
                         help='Generate JSON report and save to specified path')
     
-    parser.add_argument('--template-dir',
-                        help='Directory to scan for templates and code (CloudFormation, CDK, Terraform, Pulumi, OpenTofu, SDK)')
-    
-    parser.add_argument('--cf-template-dir',
-                        help='Directory containing CloudFormation templates to scan')
-    
-    parser.add_argument('--cdk-dir',
-                        help='Directory containing CDK code to scan')
+
     
     parser.add_argument('--terraform-dir',
                         help='Directory containing Terraform code to scan')
-    
-    parser.add_argument('--pulumi-dir',
-                        help='Directory containing Pulumi code to scan')
-    
-    parser.add_argument('--opentofu-dir',
-                        help='Directory containing OpenTofu code to scan')
-    
-    parser.add_argument('--sdk-dir',
-                        help='Directory containing AWS SDK code to scan')
     
     parser.add_argument('--verbose', action='store_true',
                         help='Show detailed progress information')
@@ -153,24 +135,13 @@ def parse_args():
 def print_ascii_art():
     """Print ASCII art banner for the tool"""
     ascii_art = """
-  █████╗ ██╗    ██╗███████╗    ██████╗ ██╗   ██╗██████╗ ██╗     ██╗ ██████╗    ██████╗ ███████╗███████╗ ██████╗ ██╗   ██╗██████╗  ██████╗███████╗
- ██╔══██╗██║    ██║██╔════╝    ██╔══██╗██║   ██║██╔══██╗██║     ██║██╔════╝    ██╔══██╗██╔════╝██╔════╝██╔═══██╗██║   ██║██╔══██╗██╔════╝██╔════╝
- ███████║██║ █╗ ██║███████╗    ██████╔╝██║   ██║██████╔╝██║     ██║██║         ██████╔╝█████╗  ███████╗██║   ██║██║   ██║██████╔╝██║     █████╗  
- ██╔══██║██║███╗██║╚════██║    ██╔═══╝ ██║   ██║██╔══██╗██║     ██║██║         ██╔══██╗██╔══╝  ╚════██║██║   ██║██║   ██║██╔══██╗██║     ██╔══╝  
- ██║  ██║╚███╔███╔╝███████║    ██║     ╚██████╔╝██████╔╝███████╗██║╚██████╗    ██║  ██║███████╗███████║╚██████╔╝╚██████╔╝██║  ██║╚██████╗███████╗
- ╚═╝  ╚═╝ ╚══╝╚══╝ ╚══════╝    ╚═╝      ╚═════╝ ╚═════╝ ╚══════╝╚═╝ ╚═════╝    ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝
-                                                                                                                                                  
- ███████╗██╗  ██╗██████╗  ██████╗ ███████╗██╗   ██╗██████╗ ███████╗    ███╗   ███╗ ██████╗ ███╗   ██╗██╗████████╗ ██████╗ ██████╗ 
- ██╔════╝╚██╗██╔╝██╔══██╗██╔═══██╗██╔════╝██║   ██║██╔══██╗██╔════╝    ████╗ ████║██╔═══██╗████╗  ██║██║╚══██╔══╝██╔═══██╗██╔══██╗
- █████╗   ╚███╔╝ ██████╔╝██║   ██║███████╗██║   ██║██████╔╝█████╗      ██╔████╔██║██║   ██║██╔██╗ ██║██║   ██║   ██║   ██║██████╔╝
- ██╔══╝   ██╔██╗ ██╔═══╝ ██║   ██║╚════██║██║   ██║██╔══██╗██╔══╝      ██║╚██╔╝██║██║   ██║██║╚██╗██║██║   ██║   ██║   ██║██╔══██╗
- ███████╗██╔╝ ██╗██║     ╚██████╔╝███████║╚██████╔╝██║  ██║███████╗    ██║ ╚═╝ ██║╚██████╔╝██║ ╚████║██║   ██║   ╚██████╔╝██║  ██║
- ╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝    ╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝
-
+===============================================================================
+                          AWS EXPOSURE MONITOR                                
+                     Security & Cost Optimization Scanner                     
+===============================================================================
     """
     
     print(colorize(ascii_art, ConsoleColors.BOLD_CYAN))
-    print(colorize("  Comprehensive AWS Security Scanner and Exposure Monitor", ConsoleColors.BOLD_WHITE))
     print()
 
 
@@ -182,6 +153,10 @@ def list_available_scanners():
     scanners = get_available_scanners()
     
     # Calculate column widths
+    if not scanners:
+        print("No scanners available.")
+        return
+    
     id_width = max(len(key) for key in scanners.keys()) + 2
     name_width = max(len(scanner['name']) for scanner in scanners.values()) + 2
     category_width = 12  # Category name + padding
@@ -193,7 +168,7 @@ def list_available_scanners():
     except (AttributeError, OSError):
         terminal_width = 100
     
-    desc_width = terminal_width - id_width - name_width - category_width - status_width - 4
+    desc_width = max(20, terminal_width - id_width - name_width - category_width - status_width - 4)
     
     # Group scanners by category
     scanners_by_category = {}
@@ -268,7 +243,11 @@ def main():
     if not aws_profile:
         # Auto-detect profiles
         print("Auto-detecting AWS profiles...")
-        usable_profiles = get_usable_profiles()
+        try:
+            usable_profiles = get_usable_profiles()
+        except Exception as e:
+            print(colorize(f"Error accessing AWS profiles: {e}", ConsoleColors.BOLD_RED))
+            return 1
         
         if not usable_profiles:
             print(colorize("No usable AWS profiles found. Please configure AWS credentials.", ConsoleColors.BOLD_RED))
@@ -311,7 +290,7 @@ def main():
         scan_types = get_scanner_ids()
     elif args.scan:
         # Check if the scan argument is a category name
-        categories = ['compute', 'security', 'database', 'storage', 'networking', 'cost']
+        categories = ['compute', 'security', 'database', 'storage', 'networking']
         if args.scan.lower() in categories:
             category = args.scan.lower()
             scan_types = get_scanner_ids_by_category(category)
@@ -327,7 +306,7 @@ def main():
                 return 1
     else:
         # Default to a set of common scanners if none specified
-        scan_types = ['s3', 'ec2', 'rds', 'iam', 'sg', 'secrets_scanner', 'cost']
+        scan_types = ['s3', 'ec2', 'rds', 'iam', 'sg', 'secrets_scanner']
         print(f"No scan types specified, using default set: {colorize(', '.join(scan_types), ConsoleColors.BOLD_CYAN)}")
     
     # Collect findings
@@ -351,40 +330,36 @@ def main():
         print(f"{colorize(category, ConsoleColors.BOLD_WHITE)}: {', '.join(get_scanner_name(s) for s in scanners)}")
     print()
     
-    # Scan resources based on arguments
-    for scan_type in scan_types:
-        if not is_scanner_available(scan_type):
-            continue
+    # Scan resources by category
+    for category, scanners in scanners_by_category.items():
+        category_findings = []
+        print_subheader(f"Scanning {category} Resources")
         
-        scanner_name = get_scanner_name(scan_type)
-        scanner_function = get_scanner_function(scan_type)
-        scanner_category = get_scanner_category(scan_type)
-        
-        print_subheader(f"[SCAN] {scanner_name} ({scanner_category})")
-        try:
-            # Handle special cases for template scanners
-            if scan_type == 'templates' and args.template_dir:
-                findings = scanner_function(args.template_dir, region=args.region)
-            elif scan_type == 'cftemplate' and args.cf_template_dir:
-                findings = scanner_function(args.cf_template_dir, region=args.region)
-            elif scan_type == 'cdk' and args.cdk_dir:
-                findings = scanner_function(args.cdk_dir)
-            elif scan_type == 'terraform' and args.terraform_dir:
-                findings = scanner_function(args.terraform_dir)
-            elif scan_type == 'pulumi' and args.pulumi_dir:
-                findings = scanner_function(args.pulumi_dir)
-            elif scan_type == 'opentofu' and args.opentofu_dir:
-                findings = scanner_function(args.opentofu_dir)
-            elif scan_type == 'sdk' and args.sdk_dir:
-                findings = scanner_function(args.sdk_dir)
-            else:
-                findings = scanner_function(region=args.region)
+        for scan_type in scanners:
+            scanner_name = get_scanner_name(scan_type)
+            scanner_function = get_scanner_function(scan_type)
+            
+            try:
+                # Handle special cases for template scanners
+                if scan_type == 'terraform' and args.terraform_dir:
+                    findings = scanner_function(args.terraform_dir)
+                else:
+                    findings = scanner_function(region=args.region)
                 
-            all_findings.extend(findings)
-            if findings:
-                print(f"Found {colorize(str(len(findings)), ConsoleColors.BOLD_WHITE)} {scanner_name} issues")
-        except Exception as e:
-            print(f"Error scanning {scanner_name}: {colorize(str(e), ConsoleColors.BOLD_RED)}")
+                if findings:
+                    category_findings.extend(findings)
+                    print(f"- {scanner_name}: {len(findings)} issues found")
+            except Exception as e:
+                print(f"- Error scanning {scanner_name}: {colorize(str(e), ConsoleColors.BOLD_RED)}")
+        
+        # Add category findings to all findings
+        all_findings.extend(category_findings)
+        
+        # Print category summary
+        if category_findings:
+            print(f"Found {colorize(str(len(category_findings)), ConsoleColors.BOLD_WHITE)} {category} issues")
+        else:
+            print(f"No {category} issues found")
     
     # Filter findings by risk level if specified
     if args.risk_level != 'ALL':
@@ -412,8 +387,7 @@ def main():
             category = 'Storage'
         elif resource_type in ['VPC', 'Subnet', 'Internet Gateway', 'Route Table', 'Network ACL', 'Elastic IP', 'API Gateway', 'CloudFront Distribution']:
             category = 'Networking'
-        elif 'Cost' in finding.get('Issue', '') or resource_type == 'Cost Optimization':
-            category = 'Cost'
+
         else:
             category = 'Other'
         
@@ -433,16 +407,22 @@ def main():
     # Save findings to file if requested
     if args.output:
         try:
-            with open(args.output, 'w') as f:
+            output_path = Path(args.output).resolve()
+            if not output_path.parent.exists():
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(output_path, 'w') as f:
                 json.dump(all_findings, f, indent=2)
-            print(f"\nFindings saved to {colorize(args.output, ConsoleColors.BOLD_GREEN)}")
+            print(f"\nFindings saved to {colorize(str(output_path), ConsoleColors.BOLD_GREEN)}")
         except Exception as e:
             print(f"Error saving findings to file: {colorize(str(e), ConsoleColors.BOLD_RED)}")
     
     # Generate HTML report if requested
     if args.html_report:
         try:
-            report_path = generate_html_report(all_findings, args.html_report)
+            html_path = Path(args.html_report).resolve()
+            if not html_path.parent.exists():
+                html_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path = generate_html_report(all_findings, str(html_path))
             if report_path:
                 print(f"\nHTML report generated: {colorize(report_path, ConsoleColors.BOLD_GREEN)}")
         except Exception as e:
@@ -451,7 +431,10 @@ def main():
     # Generate CSV report if requested
     if args.csv_report:
         try:
-            report_path = generate_csv_report(all_findings, args.csv_report)
+            csv_path = Path(args.csv_report).resolve()
+            if not csv_path.parent.exists():
+                csv_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path = generate_csv_report(all_findings, str(csv_path))
             if report_path:
                 print(f"\nCSV report generated: {colorize(report_path, ConsoleColors.BOLD_GREEN)}")
         except Exception as e:
@@ -460,11 +443,16 @@ def main():
     # Generate JSON report if requested
     if args.json_report:
         try:
-            report_path = generate_json_report(all_findings, args.json_report)
+            json_path = Path(args.json_report).resolve()
+            if not json_path.parent.exists():
+                json_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path = generate_json_report(all_findings, str(json_path))
             if report_path:
                 print(f"\nJSON report generated: {colorize(report_path, ConsoleColors.BOLD_GREEN)}")
         except Exception as e:
             print(f"Error generating JSON report: {colorize(str(e), ConsoleColors.BOLD_RED)}")
+    
+
     
     # Send notifications if requested
     if args.notify:

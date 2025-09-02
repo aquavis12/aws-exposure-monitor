@@ -26,17 +26,13 @@ def scan_cloudtrail(region=None):
     """
     findings = []
     
-    print("Starting CloudTrail scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         # First, check for organization trail in us-east-1 (global)
         org_trail_exists = False
@@ -67,7 +63,6 @@ def scan_cloudtrail(region=None):
                                     'Issue': 'Organization trail is not configured for all regions',
                                     'Recommendation': 'Enable multi-region logging for the organization trail'
                                 })
-                                print(f"    [!] FINDING: Organization trail {detail.get('Name')} is not multi-region - HIGH risk")
                             
                             if not detail.get('LogFileValidationEnabled', False):
                                 findings.append({
@@ -80,7 +75,6 @@ def scan_cloudtrail(region=None):
                                     'Issue': 'Organization trail does not have log file validation enabled',
                                     'Recommendation': 'Enable log file validation for the organization trail'
                                 })
-                                print(f"    [!] FINDING: Organization trail {detail.get('Name')} has no log file validation - HIGH risk")
                             
                             if not detail.get('KmsKeyId'):
                                 findings.append({
@@ -93,7 +87,6 @@ def scan_cloudtrail(region=None):
                                     'Issue': 'Organization trail is not encrypted with KMS',
                                     'Recommendation': 'Enable KMS encryption for the organization trail'
                                 })
-                                print(f"    [!] FINDING: Organization trail {detail.get('Name')} is not KMS encrypted - MEDIUM risk")
                 
                 if not org_trail_exists:
                     findings.append({
@@ -105,7 +98,6 @@ def scan_cloudtrail(region=None):
                         'Issue': 'No organization-wide CloudTrail trail exists',
                         'Recommendation': 'Create an organization trail that logs all regions'
                     })
-                    print(f"    [!] FINDING: No organization-wide CloudTrail trail exists - HIGH risk")
             
             except ClientError as e:
                 # Not an organization or no permission to check
@@ -123,8 +115,7 @@ def scan_cloudtrail(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
-                
+                pass
             cloudtrail_client = boto3.client('cloudtrail', region_name=current_region)
             s3_client = boto3.client('s3', region_name=current_region)
             
@@ -143,7 +134,6 @@ def scan_cloudtrail(region=None):
                         'Issue': f'No CloudTrail trail exists in region {current_region}',
                         'Recommendation': 'Create a CloudTrail trail or use an organization trail'
                     })
-                    print(f"    [!] FINDING: No CloudTrail trail exists in region {current_region} - CRITICAL risk")
                     continue
                 
                 # Get trail details
@@ -184,9 +174,8 @@ def scan_cloudtrail(region=None):
                                     'Issue': 'CloudTrail trail is not actively logging',
                                     'Recommendation': 'Enable logging for the CloudTrail trail'
                                 })
-                                print(f"    [!] FINDING: Trail {trail_name} is not logging - CRITICAL risk")
                         except ClientError as e:
-                            print(f"    Error checking trail status for {trail_name}: {e}")
+                            pass
                         
                         # Check for log file validation
                         if not trail.get('LogFileValidationEnabled', False):
@@ -200,7 +189,6 @@ def scan_cloudtrail(region=None):
                                 'Issue': 'CloudTrail trail does not have log file validation enabled',
                                 'Recommendation': 'Enable log file validation for the CloudTrail trail'
                             })
-                            print(f"    [!] FINDING: Trail {trail_name} has no log file validation - HIGH risk")
                         
                         # Check for KMS encryption
                         if not trail.get('KmsKeyId'):
@@ -214,7 +202,6 @@ def scan_cloudtrail(region=None):
                                 'Issue': 'CloudTrail trail is not encrypted with KMS',
                                 'Recommendation': 'Enable KMS encryption for the CloudTrail trail'
                             })
-                            print(f"    [!] FINDING: Trail {trail_name} is not KMS encrypted - MEDIUM risk")
                         
                         # Check for multi-region trail
                         if not trail.get('IsMultiRegionTrail', False) and not org_trail_exists:
@@ -228,7 +215,6 @@ def scan_cloudtrail(region=None):
                                 'Issue': 'CloudTrail trail is not configured for all regions',
                                 'Recommendation': 'Enable multi-region logging for the CloudTrail trail'
                             })
-                            print(f"    [!] FINDING: Trail {trail_name} is not multi-region - MEDIUM risk")
                         
                         # Check for management events logging
                         try:
@@ -262,9 +248,8 @@ def scan_cloudtrail(region=None):
                                     'Issue': 'CloudTrail trail is not logging management events',
                                     'Recommendation': 'Enable management events logging for the CloudTrail trail'
                                 })
-                                print(f"    [!] FINDING: Trail {trail_name} is not logging management events - HIGH risk")
                         except ClientError as e:
-                            print(f"    Error checking event selectors for {trail_name}: {e}")
+                            pass
                         
                         # Check S3 bucket logging
                         s3_bucket = trail.get('S3BucketName')
@@ -281,7 +266,6 @@ def scan_cloudtrail(region=None):
                                         'Issue': 'CloudTrail S3 bucket does not have access logging enabled',
                                         'Recommendation': 'Enable access logging for the CloudTrail S3 bucket'
                                     })
-                                    print(f"    [!] FINDING: CloudTrail S3 bucket {s3_bucket} has no access logging - MEDIUM risk")
                             except ClientError as e:
                                 # Skip if bucket is in another region or account
                                 pass
@@ -298,13 +282,11 @@ def scan_cloudtrail(region=None):
                                 'Issue': 'CloudTrail trail is not integrated with CloudWatch Logs',
                                 'Recommendation': 'Configure CloudWatch Logs integration for real-time monitoring'
                             })
-                            print(f"    [!] FINDING: Trail {trail_name} is not integrated with CloudWatch Logs - MEDIUM risk")
             
             except ClientError as e:
-                print(f"  Error scanning CloudTrail in {current_region}: {e}")
+                pass
         
         if total_trails_count == 0 and not org_trail_exists:
-            print("No CloudTrail trails found in any region.")
             findings.append({
                 'ResourceType': 'CloudTrail',
                 'ResourceId': 'NoTrails',
@@ -314,16 +296,8 @@ def scan_cloudtrail(region=None):
                 'Issue': 'No CloudTrail trails exist in any region',
                 'Recommendation': 'Create at least one multi-region CloudTrail trail'
             })
-            print(f"    [!] FINDING: No CloudTrail trails exist in any region - CRITICAL risk")
-        else:
-            print(f"CloudTrail scan complete. Scanned {total_trails_count} trails.")
-    
+        pass
     except Exception as e:
-        print(f"Error scanning CloudTrail: {e}")
-    
-    if findings:
-        print(f"Found {len(findings)} CloudTrail security issues.")
-    else:
-        print("No CloudTrail security issues found.")
+        pass
     
     return findings

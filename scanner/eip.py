@@ -17,17 +17,13 @@ def scan_elastic_ips(region=None):
     """
     findings = []
     
-    print("Starting Elastic IP scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_eip_count = 0
@@ -37,8 +33,7 @@ def scan_elastic_ips(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
-                
+                pass
             regional_client = boto3.client('ec2', region_name=current_region)
             
             try:
@@ -70,7 +65,6 @@ def scan_elastic_ips(region=None):
                                 'Issue': 'Elastic IP is not associated with any resource',
                                 'Recommendation': 'Associate the Elastic IP with a resource or release it to avoid charges'
                             })
-                            print(f"    [!] FINDING: Elastic IP {public_ip} ({allocation_id}) is not associated with any resource - LOW risk")
                         
                         # Check if EIP is associated with an EC2 instance
                         if 'InstanceId' in eip:
@@ -111,7 +105,6 @@ def scan_elastic_ips(region=None):
                                                                             'Issue': f'Elastic IP is attached to an instance with security group {sg_name} allowing public access to port {port}',
                                                                             'Recommendation': 'Restrict security group rules to specific IP ranges'
                                                                         })
-                                                                        print(f"    [!] FINDING: Elastic IP {public_ip} attached to instance with open port {port} - HIGH risk")
                                                                         break
                                                             elif rule.get('IpProtocol') == '-1':  # All traffic
                                                                 findings.append({
@@ -123,24 +116,12 @@ def scan_elastic_ips(region=None):
                                                                     'Issue': f'Elastic IP is attached to an instance with security group {sg_name} allowing public access to ALL ports',
                                                                     'Recommendation': 'Restrict security group rules to specific ports and IP ranges'
                                                                 })
-                                                                print(f"    [!] FINDING: Elastic IP {public_ip} attached to instance with ALL ports open - CRITICAL risk")
                             except ClientError as e:
-                                print(f"    Error checking instance {instance_id}: {e}")
+                                pass
             
             except ClientError as e:
-                print(f"  Error scanning Elastic IPs in {current_region}: {e}")
-        
-        if total_eip_count == 0:
-            print("No Elastic IPs found.")
-        else:
-            print(f"Elastic IP scan complete. Scanned {total_eip_count} Elastic IPs.")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning Elastic IPs: {e}")
-    
-    if findings:
-        print(f"Found {len(findings)} Elastic IP issues.")
-    else:
-        print("No Elastic IP issues found.")
+        pass
     
     return findings

@@ -22,14 +22,11 @@ def scan_lightsail(region=None):
     """
     findings = []
     
-    print("Starting Lightsail scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             # Lightsail is not available in all regions
             lightsail_regions = [
@@ -38,7 +35,6 @@ def scan_lightsail(region=None):
                 'ap-southeast-1', 'ap-southeast-2', 'ap-south-1', 'ca-central-1'
             ]
             regions = lightsail_regions
-            print(f"Scanning {len(regions)} Lightsail regions")
         
         region_count = 0
         total_resource_count = 0
@@ -48,8 +44,7 @@ def scan_lightsail(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
-                
+                pass
             lightsail_client = boto3.client('lightsail', region_name=current_region)
             
             # Get current time for age calculations
@@ -112,7 +107,6 @@ def scan_lightsail(region=None):
                                     'Issue': 'Lightsail instance has all ports open to the internet (0.0.0.0/0)',
                                     'Recommendation': 'Restrict firewall rules to only necessary ports and IP ranges'
                                 })
-                                print(f"    [!] FINDING: Lightsail instance {instance_name} has all ports open - CRITICAL risk")
                             
                             if has_ssh_open:
                                 findings.append({
@@ -126,7 +120,6 @@ def scan_lightsail(region=None):
                                     'Issue': 'Lightsail instance has SSH (port 22) open to the internet (0.0.0.0/0)',
                                     'Recommendation': 'Restrict SSH access to specific IP addresses'
                                 })
-                                print(f"    [!] FINDING: Lightsail instance {instance_name} has SSH open to internet - HIGH risk")
                             
                             if has_rdp_open:
                                 findings.append({
@@ -140,7 +133,6 @@ def scan_lightsail(region=None):
                                     'Issue': 'Lightsail instance has RDP (port 3389) open to the internet (0.0.0.0/0)',
                                     'Recommendation': 'Restrict RDP access to specific IP addresses'
                                 })
-                                print(f"    [!] FINDING: Lightsail instance {instance_name} has RDP open to internet - HIGH risk")
                         
                         # Check for outdated blueprints
                         if blueprint_id:
@@ -159,7 +151,6 @@ def scan_lightsail(region=None):
                                             'Issue': f'Lightsail instance is using an old blueprint ({age_days} days old)',
                                             'Recommendation': 'Create a new instance with the latest blueprint and migrate data'
                                         })
-                                        print(f"    [!] FINDING: Lightsail instance {instance_name} has outdated blueprint - MEDIUM risk")
                         
                         # Check for missing snapshots
                         try:
@@ -176,7 +167,6 @@ def scan_lightsail(region=None):
                                     'Issue': 'Lightsail instance does not have any snapshots',
                                     'Recommendation': 'Create regular snapshots for backup and recovery'
                                 })
-                                print(f"    [!] FINDING: Lightsail instance {instance_name} has no snapshots - MEDIUM risk")
                             else:
                                 # Check age of newest snapshot
                                 newest_snapshot = max(instance_snapshots, key=lambda x: x.get('createdAt', datetime.min.replace(tzinfo=timezone.utc)))
@@ -194,7 +184,6 @@ def scan_lightsail(region=None):
                                             'Issue': f'Lightsail instance has not been backed up for {days_since_snapshot} days',
                                             'Recommendation': 'Create regular snapshots for backup and recovery'
                                         })
-                                        print(f"    [!] FINDING: Lightsail instance {instance_name} snapshot is {days_since_snapshot} days old - MEDIUM risk")
                         except ClientError:
                             pass
                 
@@ -228,7 +217,6 @@ def scan_lightsail(region=None):
                                     'Issue': 'Lightsail database is publicly accessible',
                                     'Recommendation': 'Disable public accessibility and use private connections'
                                 })
-                                print(f"    [!] FINDING: Lightsail database {db_name} is publicly accessible - HIGH risk")
                             
                             # Check for backup retention
                             backup_retention = db.get('backupRetentionEnabled', False)
@@ -243,7 +231,6 @@ def scan_lightsail(region=None):
                                     'Issue': 'Lightsail database does not have backup retention enabled',
                                     'Recommendation': 'Enable backup retention for data protection'
                                 })
-                                print(f"    [!] FINDING: Lightsail database {db_name} has no backup retention - HIGH risk")
                             
                             # Check for missing snapshots
                             try:
@@ -261,11 +248,10 @@ def scan_lightsail(region=None):
                                         'Issue': 'Lightsail database does not have any snapshots',
                                         'Recommendation': 'Create regular snapshots for backup and recovery'
                                     })
-                                    print(f"    [!] FINDING: Lightsail database {db_name} has no snapshots - MEDIUM risk")
                             except ClientError:
                                 pass
                 except ClientError as e:
-                    print(f"  Error scanning Lightsail databases in {current_region}: {e}")
+                    pass
                 
                 # Scan Lightsail load balancers
                 try:
@@ -295,7 +281,6 @@ def scan_lightsail(region=None):
                                     'Issue': f'Lightsail load balancer is using outdated TLS policy: {tls_policy or "Default"}',
                                     'Recommendation': 'Update to TLS-1-2 or higher for better security'
                                 })
-                                print(f"    [!] FINDING: Lightsail load balancer {lb_name} uses outdated TLS policy - HIGH risk")
                             
                             # Check for HTTPS configuration
                             https_configured = False
@@ -314,24 +299,12 @@ def scan_lightsail(region=None):
                                     'Issue': 'Lightsail load balancer does not have HTTPS configured',
                                     'Recommendation': 'Configure HTTPS with a valid certificate'
                                 })
-                                print(f"    [!] FINDING: Lightsail load balancer {lb_name} has no HTTPS - MEDIUM risk")
                 except ClientError as e:
-                    print(f"  Error scanning Lightsail load balancers in {current_region}: {e}")
+                    pass
             
             except ClientError as e:
-                print(f"  Error scanning Lightsail resources in {current_region}: {e}")
-        
-        if total_resource_count == 0:
-            print("No Lightsail resources found.")
-        else:
-            print(f"Lightsail scan complete. Scanned {total_resource_count} resources.")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning Lightsail: {e}")
-    
-    if findings:
-        print(f"Found {len(findings)} Lightsail security issues.")
-    else:
-        print("No Lightsail security issues found.")
+        pass
     
     return findings

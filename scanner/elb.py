@@ -17,17 +17,13 @@ def scan_load_balancers(region=None):
     """
     findings = []
     
-    print("Starting Elastic Load Balancer scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_elb_count = 0
@@ -37,7 +33,7 @@ def scan_load_balancers(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
+                pass
                 
             # Scan Classic Load Balancers
             try:
@@ -95,7 +91,6 @@ def scan_load_balancers(region=None):
                                     'Issue': 'Internet-facing Classic Load Balancer uses outdated SSL/TLS protocols',
                                     'Recommendation': 'Update SSL policy to use only TLSv1.2 or later'
                                 })
-                                print(f"    [!] FINDING: Classic LB {lb_name} uses outdated SSL/TLS protocols - HIGH risk")
                             
                             # Check if access logs are enabled
                             if not lb.get('AccessLog', {}).get('Enabled', False):
@@ -110,10 +105,9 @@ def scan_load_balancers(region=None):
                                     'Issue': 'Internet-facing Classic Load Balancer does not have access logs enabled',
                                     'Recommendation': 'Enable access logs to monitor traffic'
                                 })
-                                print(f"    [!] FINDING: Classic LB {lb_name} has no access logs enabled - MEDIUM risk")
             
             except ClientError as e:
-                print(f"  Error scanning Classic Load Balancers in {current_region}: {e}")
+                pass
             
             # Scan Application and Network Load Balancers
             try:
@@ -153,7 +147,6 @@ def scan_load_balancers(region=None):
                                 'Issue': f'Internet-facing {lb_type} Load Balancer is configured for dual-stack (IPv4 and IPv6)',
                                 'Recommendation': 'Ensure security groups and network ACLs properly restrict IPv6 traffic'
                             })
-                            print(f"    [!] FINDING: {lb_type} LB {lb_name} is dual-stack (IPv4/IPv6) - MEDIUM risk")
                         
                         # Check if load balancer is internet-facing
                         if scheme == 'internet-facing':
@@ -185,7 +178,6 @@ def scan_load_balancers(region=None):
                                                     'Issue': 'Internet-facing ALB has HTTP listener without HTTPS redirect',
                                                     'Recommendation': 'Configure HTTP to HTTPS redirect for all listeners'
                                                 })
-                                                print(f"    [!] FINDING: ALB {lb_name} has HTTP listener without HTTPS redirect - MEDIUM risk")
                                     
                                     # Check if WAF is enabled
                                     try:
@@ -217,7 +209,6 @@ def scan_load_balancers(region=None):
                                                 'Issue': 'Internet-facing ALB does not have WAF enabled',
                                                 'Recommendation': 'Enable AWS WAF to protect against common web exploits'
                                             })
-                                            print(f"    [!] FINDING: ALB {lb_name} has no WAF protection - MEDIUM risk")
                                     except ClientError:
                                         # WAF might not be available in this region
                                         pass
@@ -241,10 +232,9 @@ def scan_load_balancers(region=None):
                                                     'Issue': f'Internet-facing NLB exposes sensitive port {port}',
                                                     'Recommendation': 'Restrict access to this port or use a private NLB'
                                                 })
-                                                print(f"    [!] FINDING: NLB {lb_name} exposes sensitive port {port} - HIGH risk")
                             
                             except ClientError as e:
-                                print(f"    Error checking listeners for {lb_name}: {e}")
+                                pass
                             
                             # Check if access logs are enabled
                             try:
@@ -268,25 +258,13 @@ def scan_load_balancers(region=None):
                                         'Issue': f'Internet-facing {lb_type.upper()} does not have access logs enabled',
                                         'Recommendation': 'Enable access logs to monitor traffic'
                                     })
-                                    print(f"    [!] FINDING: {lb_type.upper()} {lb_name} has no access logs enabled - MEDIUM risk")
                             
                             except ClientError as e:
-                                print(f"    Error checking attributes for {lb_name}: {e}")
+                                pass
             
             except ClientError as e:
-                print(f"  Error scanning Application/Network Load Balancers in {current_region}: {e}")
-        
-        if total_elb_count == 0:
-            print("No Elastic Load Balancers found.")
-        else:
-            print(f"Elastic Load Balancer scan complete. Scanned {total_elb_count} load balancers.")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning Elastic Load Balancers: {e}")
-    
-    if findings:
-        print(f"Found {len(findings)} Elastic Load Balancer issues.")
-    else:
-        print("No Elastic Load Balancer issues found.")
+        pass
     
     return findings

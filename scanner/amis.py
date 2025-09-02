@@ -18,28 +18,19 @@ def scan_amis(region=None):
     """
     findings = []
     
-    print("Starting AMI scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_amis_found = 0
         
         for current_region in regions:
             region_count += 1
-            if len(regions) > 1:
-                print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
-            else:
-                print(f"Scanning region: {current_region}")
-                
             regional_client = boto3.client('ec2', region_name=current_region)
             
             # Get owned AMIs
@@ -50,7 +41,6 @@ def scan_amis(region=None):
                 if ami_list:
                     ami_count = len(ami_list)
                     total_amis_found += ami_count
-                    print(f"  Found {ami_count} AMIs in {current_region}")
                     
                     for i, image in enumerate(ami_list, 1):
                         image_id = image['ImageId']
@@ -61,10 +51,6 @@ def scan_amis(region=None):
                         creation_date = image.get('CreationDate', '')
                         platform = image.get('Platform', 'Linux/UNIX')
                         state = image.get('State', '')
-                        
-                        # Print progress every 5 AMIs or for the last one
-                        if i % 5 == 0 or i == ami_count:
-                            print(f"  Progress: {i}/{ami_count}")
                         
                         # Check if AMI is public
                         if image.get('Public', False):
@@ -81,7 +67,6 @@ def scan_amis(region=None):
                                 'Issue': 'AMI is publicly accessible',
                                 'Recommendation': 'Make the AMI private or delete if not needed'
                             })
-                            print(f"    [!] FINDING: AMI {image_id} is publicly accessible - HIGH risk")
                         
                         # Check launch permissions
                         try:
@@ -105,7 +90,6 @@ def scan_amis(region=None):
                                         'Issue': 'AMI has public launch permissions',
                                         'Recommendation': 'Remove public launch permissions from the AMI'
                                     })
-                                    print(f"    [!] FINDING: AMI {image_id} has public launch permissions - HIGH risk")
                                     break
                         except ClientError as e:
                             # Silently handle errors checking permissions
@@ -148,22 +132,10 @@ def scan_amis(region=None):
                                 'Issue': f'AMI contains unencrypted volumes: {", ".join(unencrypted_volumes)}',
                                 'Recommendation': 'Create a new AMI with encrypted snapshots'
                             })
-                            print(f"    [!] FINDING: AMI {image_id} contains {len(unencrypted_volumes)} unencrypted volumes - MEDIUM risk")
             
             except ClientError as e:
-                print(f"  Error listing AMIs in {current_region}: {e}")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning AMIs: {e}")
-    
-    if total_amis_found == 0:
-        print("No AMIs found.")
-    else:
-        print(f"AMI scan complete. Scanned {total_amis_found} AMIs.")
-    
-    if findings:
-        print(f"Found {len(findings)} AMI issues.")
-    else:
-        print("No AMI issues found.")
+        pass
     
     return findings

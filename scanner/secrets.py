@@ -24,17 +24,13 @@ def scan_secrets_and_keys(region=None):
     """
     findings = []
     
-    print("Starting Secrets Manager and KMS scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_secrets_count = 0
@@ -45,7 +41,7 @@ def scan_secrets_and_keys(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
+                pass
                 
             # Scan Secrets Manager secrets
             try:
@@ -91,7 +87,6 @@ def scan_secrets_and_keys(region=None):
                                 'Issue': f'Secret is pending deletion in {days_until_deletion} days',
                                 'Recommendation': 'Verify if this secret is still needed before it is permanently deleted'
                             })
-                            print(f"    [!] FINDING: Secret {secret_name} is pending deletion - MEDIUM risk")
                         
                         # Check if secret hasn't been accessed in 90+ days
                         if last_accessed_date:
@@ -107,7 +102,6 @@ def scan_secrets_and_keys(region=None):
                                     'Issue': f'Secret has not been accessed for {days_since_access} days',
                                     'Recommendation': 'Review if this secret is still needed or delete it to reduce costs'
                                 })
-                                print(f"    [!] FINDING: Secret {secret_name} has not been accessed for {days_since_access} days - MEDIUM risk")
                         
                         # Check if secret hasn't been rotated in 90+ days
                         if last_changed_date:
@@ -123,7 +117,6 @@ def scan_secrets_and_keys(region=None):
                                     'Issue': f'Secret has not been rotated for {days_since_change} days',
                                     'Recommendation': 'Enable automatic rotation or manually rotate the secret'
                                 })
-                                print(f"    [!] FINDING: Secret {secret_name} has not been rotated for {days_since_change} days - MEDIUM risk")
                         
                         # Check if secret has rotation enabled
                         try:
@@ -141,12 +134,11 @@ def scan_secrets_and_keys(region=None):
                                     'Issue': 'Secret does not have automatic rotation enabled',
                                     'Recommendation': 'Enable automatic rotation for better security'
                                 })
-                                print(f"    [!] FINDING: Secret {secret_name} does not have rotation enabled - LOW risk")
                         except ClientError as e:
-                            print(f"    Error checking rotation for secret {secret_name}: {e}")
+                            pass
             
             except ClientError as e:
-                print(f"  Error scanning Secrets Manager in {current_region}: {e}")
+                pass
             
             # Scan KMS keys
             try:
@@ -212,7 +204,6 @@ def scan_secrets_and_keys(region=None):
                                         'Issue': f'KMS key is pending deletion in {days_until_deletion} days',
                                         'Recommendation': 'Verify if this key is still needed before it is permanently deleted'
                                     })
-                                    print(f"    [!] FINDING: KMS key {key_name} is pending deletion - HIGH risk")
                             
                             # Check if key is disabled
                             elif key_state == 'Disabled':
@@ -226,7 +217,6 @@ def scan_secrets_and_keys(region=None):
                                     'Issue': 'KMS key is disabled',
                                     'Recommendation': 'Enable the key if needed or schedule it for deletion'
                                 })
-                                print(f"    [!] FINDING: KMS key {key_name} is disabled - MEDIUM risk")
                             
                             # Check key rotation for enabled customer managed keys
                             elif key_state == 'Enabled' and key_manager == 'CUSTOMER':
@@ -245,11 +235,10 @@ def scan_secrets_and_keys(region=None):
                                             'Issue': 'KMS key does not have automatic rotation enabled',
                                             'Recommendation': 'Enable automatic key rotation for better security'
                                         })
-                                        print(f"    [!] FINDING: KMS key {key_name} does not have rotation enabled - MEDIUM risk")
                                 except ClientError as e:
                                     # Some key types don't support rotation
                                     if 'UnsupportedOperationException' not in str(e):
-                                        print(f"    Error checking rotation for key {key_id}: {e}")
+                                        pass
                             
                             # Check for key policy issues
                             try:
@@ -268,27 +257,15 @@ def scan_secrets_and_keys(region=None):
                                         'Issue': 'KMS key policy contains overly permissive statements',
                                         'Recommendation': 'Restrict key policy to specific principals'
                                     })
-                                    print(f"    [!] FINDING: KMS key {key_name} has overly permissive policy - HIGH risk")
                             except ClientError as e:
-                                print(f"    Error checking policy for key {key_id}: {e}")
+                                pass
                         
                         except ClientError as e:
-                            print(f"    Error checking KMS key {key_id}: {e}")
+                            pass
             
             except ClientError as e:
-                print(f"  Error scanning KMS in {current_region}: {e}")
-        
-        if total_secrets_count == 0 and total_keys_count == 0:
-            print("No Secrets Manager secrets or KMS keys found.")
-        else:
-            print(f"Secrets and KMS scan complete. Scanned {total_secrets_count} secrets and {total_keys_count} keys.")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning Secrets Manager and KMS: {e}")
-    
-    if findings:
-        print(f"Found {len(findings)} Secrets Manager and KMS security issues.")
-    else:
-        print("No Secrets Manager or KMS security issues found.")
+        pass
     
     return findings

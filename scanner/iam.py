@@ -22,11 +22,7 @@ def scan_iam_users(region=None):
     """
     findings = []
     
-    print("Starting IAM user and access key scan...")
-    
     # Note: IAM is a global service, region parameter is ignored
-    if region:
-        print("Note: IAM is a global service. The region parameter will be ignored.")
     
     try:
         # IAM is a global service
@@ -43,8 +39,6 @@ def scan_iam_users(region=None):
             users.extend(page.get('Users', []))
         
         if users:
-            print(f"Found {len(users)} IAM users")
-            
             for i, user in enumerate(users, 1):
                 user_name = user.get('UserName')
                 user_id = user.get('UserId')
@@ -80,7 +74,6 @@ def scan_iam_users(region=None):
                                 'Issue': f'IAM user has not logged in for {days_since_login} days',
                                 'Recommendation': 'Review if this user is still needed or disable console access'
                             })
-                            print(f"    [!] FINDING: User {user_name} has not logged in for {days_since_login} days - MEDIUM risk")
                     else:
                         # User has never logged in
                         days_since_creation = (current_time - creation_date).days
@@ -96,7 +89,6 @@ def scan_iam_users(region=None):
                                 'Issue': f'IAM user has never logged in (created {days_since_creation} days ago)',
                                 'Recommendation': 'Review if this user is still needed or disable console access'
                             })
-                            print(f"    [!] FINDING: User {user_name} has never logged in (created {days_since_creation} days ago) - MEDIUM risk")
                 
                 # Check MFA status
                 mfa_devices = iam_client.list_mfa_devices(UserName=user_name).get('MFADevices', [])
@@ -112,7 +104,6 @@ def scan_iam_users(region=None):
                         'Issue': 'IAM user with console access does not have MFA enabled',
                         'Recommendation': 'Enable MFA for all users with console access'
                     })
-                    print(f"    [!] FINDING: User {user_name} does not have MFA enabled - HIGH risk")
                 
                 # Check access keys
                 access_keys = iam_client.list_access_keys(UserName=user_name).get('AccessKeyMetadata', [])
@@ -136,7 +127,6 @@ def scan_iam_users(region=None):
                             'Issue': f'Access key is {key_age_days} days old',
                             'Recommendation': 'Rotate access keys regularly (every 90 days)'
                         })
-                        print(f"    [!] FINDING: Access key {key_id} for user {user_name} is {key_age_days} days old - MEDIUM risk")
                     
                     # Check key last used
                     if key_status == 'Active':
@@ -158,7 +148,6 @@ def scan_iam_users(region=None):
                                         'Issue': f'Access key has not been used for {days_since_use} days',
                                         'Recommendation': 'Deactivate or delete unused access keys'
                                     })
-                                    print(f"    [!] FINDING: Access key {key_id} for user {user_name} has not been used for {days_since_use} days - MEDIUM risk")
                             else:
                                 # Key has never been used
                                 if key_age_days > 30:
@@ -172,9 +161,8 @@ def scan_iam_users(region=None):
                                         'Issue': f'Access key has never been used (created {key_age_days} days ago)',
                                         'Recommendation': 'Delete unused access keys'
                                     })
-                                    print(f"    [!] FINDING: Access key {key_id} for user {user_name} has never been used - MEDIUM risk")
                         except ClientError as e:
-                            print(f"    Error checking access key last used for {key_id}: {e}")
+                            pass
                 
                 # Check for admin privileges
                 try:
@@ -196,13 +184,10 @@ def scan_iam_users(region=None):
                                 'Issue': 'IAM user has administrator access',
                                 'Recommendation': 'Limit administrator access to only necessary users and use roles instead'
                             })
-                            print(f"    [!] FINDING: User {user_name} has administrator access - HIGH risk")
                             break
                 
                 except ClientError as e:
-                    print(f"    Error checking user policies for {user_name}: {e}")
-        else:
-            print("No IAM users found.")
+                    pass
         
         # Check password policy
         try:
@@ -220,7 +205,6 @@ def scan_iam_users(region=None):
                     'Issue': f'Password policy minimum length is only {min_length} characters',
                     'Recommendation': 'Set minimum password length to at least 14 characters'
                 })
-                print(f"    [!] FINDING: Password policy minimum length is only {min_length} characters - MEDIUM risk")
             
             # Check password reuse prevention
             reuse_prevention = password_policy.get('PasswordReusePrevention', 0)
@@ -234,7 +218,6 @@ def scan_iam_users(region=None):
                     'Issue': f'Password policy allows reuse after {reuse_prevention} passwords',
                     'Recommendation': 'Set password reuse prevention to at least 24 passwords'
                 })
-                print(f"    [!] FINDING: Password policy allows reuse after {reuse_prevention} passwords - MEDIUM risk")
             
             # Check password expiration
             max_age = password_policy.get('MaxPasswordAge', 0)
@@ -248,7 +231,6 @@ def scan_iam_users(region=None):
                     'Issue': 'Password policy does not require regular password rotation',
                     'Recommendation': 'Set maximum password age to 90 days or less'
                 })
-                print(f"    [!] FINDING: Password policy does not require regular password rotation - MEDIUM risk")
         
         except ClientError as e:
             if 'NoSuchEntity' in str(e):
@@ -261,16 +243,8 @@ def scan_iam_users(region=None):
                     'Issue': 'No account password policy is set',
                     'Recommendation': 'Configure a strong password policy for the AWS account'
                 })
-                print(f"    [!] FINDING: No account password policy is set - HIGH risk")
-            else:
-                print(f"  Error checking password policy: {e}")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning IAM users: {e}")
-    
-    if findings:
-        print(f"IAM scan complete. Found {len(findings)} issues.")
-    else:
-        print("IAM scan complete. No issues found.")
+        pass
     
     return findings

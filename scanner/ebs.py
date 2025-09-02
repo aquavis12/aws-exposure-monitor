@@ -19,16 +19,12 @@ def scan_ebs_snapshots(region=None):
     findings = []
     ec2_client = boto3.client('ec2')
     
-    print("Starting EBS snapshot and volume scan...")
-    
     try:
         # Get regions to scan
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_resources_found = 0
@@ -38,8 +34,7 @@ def scan_ebs_snapshots(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
-                
+                pass
             regional_client = boto3.client('ec2', region_name=current_region)
             
             # Check owned snapshots
@@ -95,10 +90,9 @@ def scan_ebs_snapshots(region=None):
                                         'Issue': 'EBS snapshot is publicly accessible',
                                         'Recommendation': 'Remove public access permissions from the snapshot'
                                     })
-                                    print(f"    [!] FINDING: Snapshot {snapshot_id} is publicly accessible - HIGH risk")
                                     break
                         except ClientError as e:
-                            print(f"    Error checking snapshot {snapshot_id} permissions: {e}")
+                            pass
                         
                         # Check if snapshot is encrypted
                         encrypted = snapshot.get('Encrypted', False)
@@ -114,10 +108,9 @@ def scan_ebs_snapshots(region=None):
                                 'Issue': 'EBS snapshot is not encrypted',
                                 'Recommendation': 'Create encrypted snapshots and consider migrating data to encrypted volumes'
                             })
-                            print(f"    [!] FINDING: Snapshot {snapshot_id} is not encrypted - MEDIUM risk")
             
             except ClientError as e:
-                print(f"  Error listing snapshots in {current_region}: {e}")
+                pass
             
             # Check for EBS volumes
             try:
@@ -159,22 +152,10 @@ def scan_ebs_snapshots(region=None):
                                 'Issue': 'EBS volume is not encrypted',
                                 'Recommendation': 'Create an encrypted snapshot, create a new encrypted volume from the snapshot, and replace the original volume'
                             })
-                            print(f"    [!] FINDING: Volume {volume_id} ({volume_name}) is not encrypted - MEDIUM risk")
             
             except ClientError as e:
-                print(f"  Error checking EBS volumes in {current_region}: {e}")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning EBS snapshots and volumes: {e}")
-    
-    if total_resources_found == 0:
-        print("No EBS snapshots or volumes found.")
-    else:
-        print(f"EBS scan complete. Scanned {total_resources_found} resources.")
-    
-    if findings:
-        print(f"Found {len(findings)} EBS issues.")
-    else:
-        print("No EBS issues found.")
+        pass
     
     return findings

@@ -23,17 +23,13 @@ def scan_dynamodb(region=None):
     """
     findings = []
     
-    print("Starting DynamoDB scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_tables_count = 0
@@ -43,8 +39,7 @@ def scan_dynamodb(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
-                
+                pass
             dynamodb_client = boto3.client('dynamodb', region_name=current_region)
             
             try:
@@ -88,9 +83,8 @@ def scan_dynamodb(region=None):
                                         'Issue': 'DynamoDB table is not encrypted with KMS',
                                         'Recommendation': 'Enable server-side encryption with KMS for the table'
                                     })
-                                    print(f"    [!] FINDING: DynamoDB table {table_name} is not encrypted - MEDIUM risk")
                             except ClientError as e:
-                                print(f"    Error checking encryption for table {table_name}: {e}")
+                                pass
                             
                             # Check for point-in-time recovery
                             try:
@@ -108,9 +102,8 @@ def scan_dynamodb(region=None):
                                         'Issue': 'DynamoDB table does not have point-in-time recovery enabled',
                                         'Recommendation': 'Enable point-in-time recovery for data protection'
                                     })
-                                    print(f"    [!] FINDING: DynamoDB table {table_name} has no point-in-time recovery - MEDIUM risk")
                             except ClientError as e:
-                                print(f"    Error checking point-in-time recovery for table {table_name}: {e}")
+                                pass
                             
                             # Check for backups
                             try:
@@ -126,7 +119,6 @@ def scan_dynamodb(region=None):
                                         'Issue': 'DynamoDB table has no backups',
                                         'Recommendation': 'Create regular backups or use AWS Backup for the table'
                                     })
-                                    print(f"    [!] FINDING: DynamoDB table {table_name} has no backups - LOW risk")
                             except ClientError as e:
                                 # This might fail if the table was just created
                                 pass
@@ -173,7 +165,6 @@ def scan_dynamodb(region=None):
                                         'Issue': 'DynamoDB table uses provisioned capacity without auto scaling',
                                         'Recommendation': 'Configure auto scaling or switch to on-demand capacity mode'
                                     })
-                                    print(f"    [!] FINDING: DynamoDB table {table_name} has no auto scaling - LOW risk")
                             except ClientError:
                                 pass
                             
@@ -193,30 +184,17 @@ def scan_dynamodb(region=None):
                                         'Issue': 'DynamoDB table does not have TTL enabled',
                                         'Recommendation': 'Consider enabling TTL for data lifecycle management'
                                     })
-                                    print(f"    [!] FINDING: DynamoDB table {table_name} has no TTL enabled - LOW risk")
                             except ClientError:
                                 pass
                         
                         except ClientError as e:
-                            print(f"    Error checking table {table_name}: {e}")
+                            pass
                 
-                else:
                     print(f"  No DynamoDB tables found in {current_region}")
             
             except ClientError as e:
-                print(f"  Error scanning DynamoDB in {current_region}: {e}")
-        
-        if total_tables_count == 0:
-            print("No DynamoDB tables found.")
-        else:
-            print(f"DynamoDB scan complete. Scanned {total_tables_count} tables.")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning DynamoDB: {e}")
-    
-    if findings:
-        print(f"Found {len(findings)} DynamoDB security issues.")
-    else:
-        print("No DynamoDB security issues found.")
+        pass
     
     return findings

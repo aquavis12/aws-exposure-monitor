@@ -18,17 +18,13 @@ def scan_lambda_functions(region=None):
     """
     findings = []
     
-    print("Starting Lambda function scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_function_count = 0
@@ -38,8 +34,7 @@ def scan_lambda_functions(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
-                
+                pass
             lambda_client = boto3.client('lambda', region_name=current_region)
             
             try:
@@ -82,7 +77,6 @@ def scan_lambda_functions(region=None):
                                     'Issue': 'Lambda function URL has no authentication (AuthType: NONE)',
                                     'Recommendation': 'Change AuthType to AWS_IAM or implement custom authorization'
                                 })
-                                print(f"    [!] FINDING: Function {function_name} has public URL without authentication - HIGH risk")
                         except ClientError as e:
                             # Function URL not configured - this is normal
                             pass
@@ -109,26 +103,14 @@ def scan_lambda_functions(region=None):
                                             'Issue': 'Lambda function policy allows public invocation',
                                             'Recommendation': 'Restrict the function policy to specific principals'
                                         })
-                                        print(f"    [!] FINDING: Function {function_name} has public policy - HIGH risk")
                                         break
                         except ClientError as e:
                             # No resource policy - this is normal
                             pass
             
             except ClientError as e:
-                print(f"  Error scanning Lambda functions in {current_region}: {e}")
-        
-        if total_function_count == 0:
-            print("No Lambda functions found.")
-        else:
-            print(f"Lambda scan complete. Scanned {total_function_count} functions.")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning Lambda functions: {e}")
-    
-    if findings:
-        print(f"Found {len(findings)} Lambda function issues.")
-    else:
-        print("No Lambda function issues found.")
+        pass
     
     return findings

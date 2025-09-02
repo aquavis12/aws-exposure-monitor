@@ -23,17 +23,13 @@ def scan_sqs(region=None):
     """
     findings = []
     
-    print("Starting SQS scan...")
-    
     try:
         # Get regions to scan
         ec2_client = boto3.client('ec2')
         if region:
             regions = [region]
-            print(f"Scanning region: {region}")
         else:
             regions = [region['RegionName'] for region in ec2_client.describe_regions()['Regions']]
-            print(f"Scanning {len(regions)} regions")
         
         region_count = 0
         total_queues_count = 0
@@ -43,8 +39,7 @@ def scan_sqs(region=None):
             if len(regions) > 1:
                 print(f"[{region_count}/{len(regions)}] Scanning region: {current_region}")
             else:
-                print(f"Scanning region: {current_region}")
-                
+                pass
             sqs_client = boto3.client('sqs', region_name=current_region)
             
             try:
@@ -92,7 +87,6 @@ def scan_sqs(region=None):
                                     'Issue': 'SQS queue is not encrypted with KMS',
                                     'Recommendation': 'Enable server-side encryption with KMS for sensitive queues'
                                 })
-                                print(f"    [!] FINDING: SQS queue {queue_name} is not encrypted - MEDIUM risk")
                             
                             # Check for public access in policy
                             if policy and ('"Principal": "*"' in policy or '"Principal":{"AWS":"*"}' in policy):
@@ -106,7 +100,6 @@ def scan_sqs(region=None):
                                     'Issue': 'SQS queue has a policy with public access (Principal: *)',
                                     'Recommendation': 'Restrict the queue policy to specific principals'
                                 })
-                                print(f"    [!] FINDING: SQS queue {queue_name} has public access policy - HIGH risk")
                             
                             # Check for cross-account access
                             if policy:
@@ -123,7 +116,6 @@ def scan_sqs(region=None):
                                         'Issue': 'SQS queue may have cross-account access configured',
                                         'Recommendation': 'Review the queue policy to ensure cross-account access is intended'
                                     })
-                                    print(f"    [!] FINDING: SQS queue {queue_name} has potential cross-account access - MEDIUM risk")
                             
                             # Check for missing dead letter queue
                             if 'RedrivePolicy' not in queue_attributes:
@@ -137,7 +129,6 @@ def scan_sqs(region=None):
                                     'Issue': 'SQS queue does not have a dead letter queue configured',
                                     'Recommendation': 'Configure a dead letter queue to capture failed messages'
                                 })
-                                print(f"    [!] FINDING: SQS queue {queue_name} has no dead letter queue - LOW risk")
                             
                             # Check for high visibility timeout
                             visibility_timeout = int(queue_attributes.get('VisibilityTimeout', 30))
@@ -152,28 +143,15 @@ def scan_sqs(region=None):
                                     'Issue': f'SQS queue has a very high visibility timeout ({visibility_timeout} seconds)',
                                     'Recommendation': 'Review the visibility timeout setting to ensure it is appropriate'
                                 })
-                                print(f"    [!] FINDING: SQS queue {queue_name} has high visibility timeout - LOW risk")
                         
                         except ClientError as e:
-                            print(f"    Error checking queue {queue_name}: {e}")
+                            pass
                 
-                else:
                     print(f"  No SQS queues found in {current_region}")
             
             except ClientError as e:
-                print(f"  Error scanning SQS in {current_region}: {e}")
-        
-        if total_queues_count == 0:
-            print("No SQS queues found.")
-        else:
-            print(f"SQS scan complete. Scanned {total_queues_count} queues.")
-    
+                pass
     except Exception as e:
-        print(f"Error scanning SQS: {e}")
-    
-    if findings:
-        print(f"Found {len(findings)} SQS security issues.")
-    else:
-        print("No SQS security issues found.")
+        pass
     
     return findings
