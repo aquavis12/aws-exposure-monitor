@@ -8,13 +8,13 @@
 
 </div>
 
-A powerful security tool that scans your AWS environment for publicly exposed resources, security vulnerabilities, and cost optimization opportunities. Generates detailed reports with risk-based prioritization.
+A powerful security tool that scans your AWS environment for publicly exposed resources and security vulnerabilities. Generates detailed reports with risk-based prioritization.
 
 ## ✨ Features
 
-- **Comprehensive Scanning** of 30+ AWS services
+- **Comprehensive Security Scanning** of 30+ AWS services
 - **Multi-Region Support** to scan your entire AWS footprint
-- **Interactive HTML Reports** with visualizations and filtering
+- **Interactive HTML Reports** with detailed findings and filtering
 - **CSV and JSON Reports** for integration with other tools
 - **Risk-Based Prioritization** (LOW, MEDIUM, HIGH, CRITICAL)
 - **Notification Integration** with Slack and Microsoft Teams
@@ -56,12 +56,12 @@ python main.py --risk-level HIGH --html-report report.html
 ### By Category
 - **compute** - EC2, AMIs, ECR, Lambda, Lightsail
 - **security** - IAM, Security Groups, Secrets, CloudTrail, GuardDuty, WAF
-- **database** - RDS, Aurora, DynamoDB, Elasticsearch
-- **storage** - S3, EBS
+- **database** - RDS, Aurora, DynamoDB, Elasticsearch, OpenSearch, ElastiCache, Redshift
+- **storage** - S3, EBS, EFS
 - **networking** - API Gateway, CloudFront, ELB, VPC, SNS, SQS
 
 ### Individual Services
-`s3`, `ec2`, `iam`, `sg`, `rds`, `api`, `lambda`, `cloudfront`, `elb`, `vpc`, `sns`, `sqs`, `dynamodb`, `secrets`, `cloudtrail`, `guardduty`, `waf`, `terraform`
+`s3`, `ec2`, `iam`, `sg`, `rds`, `api`, `lambda`, `cloudfront`, `elb`, `vpc`, `sns`, `sqs`, `dynamodb`, `secrets`, `cloudtrail`, `guardduty`, `waf`, `terraform`, `efs`, `elasticache`, `opensearch`, `redshift`
 
 ## 📊 Command Line Options
 
