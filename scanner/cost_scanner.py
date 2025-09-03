@@ -78,11 +78,13 @@ budgets_client = boto3.client('budgets', region_name=os.getenv('AWS_CE_REGION', 
                 increase_pct = ((costs['current'] - costs['last']) / costs['last']) * 100
                 findings.append({
                     'ResourceType': 'Cost Analysis',
-                    'ResourceId': f'cost-increase-{service}',
-                    'ResourceName': f'{service} Cost Increase',
-                    'Region': 'global',
-                    'Risk': 'HIGH' if increase_pct > 100 else 'MEDIUM',
-                    'Issue': f'{service} costs increased by {increase_pct:.1f}% (${costs["current"]:.2f} vs ${costs["last"]:.2f})',
+COST_INCREASE_THRESHOLD = float(os.getenv('COST_INCREASE_THRESHOLD', '1.5'))
+ANOMALY_THRESHOLD = float(os.getenv('ANOMALY_THRESHOLD', '100.0'))
+
+# Check for significant cost increases
+for service, costs in service_costs.items():
+    if costs['last'] > 0 and costs['current'] > costs['last'] * COST_INCREASE_THRESHOLD:
+        increase_pct = ((costs['current'] - costs['last']) / costs['last']) * 100
                     'Recommendation': f'Review {service} usage and optimize resources'
                 })
         
