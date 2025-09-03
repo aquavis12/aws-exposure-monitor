@@ -255,6 +255,7 @@ def generate_cost_report(output_path, region=None):
             f.write(html_content)
         
         return output_path
-        
     except Exception as e:
+        print(f"Error generating cost report: {str(e)}")
+        raise RuntimeError(f"Failed to generate cost report: {str(e)}")
         return None
