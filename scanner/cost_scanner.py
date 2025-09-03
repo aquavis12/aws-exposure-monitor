@@ -90,8 +90,9 @@ for service, costs in service_costs.items():
         
         # Get unused/underutilized resources from Cost Explorer
         try:
-            unused_resources = ce_client.get_rightsizing_recommendation(
-                Service='EC2-Instance'
+        except ClientError as e:
+            print(f"Failed to get rightsizing recommendations: {str(e)}")
+            pass
             )
             
             for recommendation in unused_resources.get('RightsizingRecommendations', []):
