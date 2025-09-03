@@ -140,12 +140,16 @@ for service, costs in service_costs.items():
         try:
             usage_report = ce_client.get_usage_forecast(
                 TimePeriod={
-                    'Start': today.strftime('%Y-%m-%d'),
-                    'End': (today + timedelta(days=30)).strftime('%Y-%m-%d')
-                },
-                Metric='USAGE_QUANTITY',
-                Granularity='MONTHLY'
-            )
+@functools.lru_cache(maxsize=128, ttl=3600)  # Cache for 1 hour
+def get_cost_data(start_date: str, end_date: str) -> Dict:
+    """Get cost data with caching to reduce API calls"""
+    ce_client = boto3.client('ce', region_name=os.getenv('AWS_CE_REGION', 'us-east-1'))
+    return ce_client.get_cost_and_usage(
+        TimePeriod={'Start': start_date, 'End': end_date},
+        Granularity='MONTHLY',
+        Metrics=['BlendedCost'],
+        GroupBy=[{'Type': 'DIMENSION', 'Key': 'SERVICE'}]
+    )
             
             forecast_amount = float(usage_report.get('Total', {}).get('Amount', 0))
             if forecast_amount > current_total * 1.2:  # 20% increase forecast
