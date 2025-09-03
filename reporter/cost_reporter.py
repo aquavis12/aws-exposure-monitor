@@ -25,8 +25,11 @@ def generate_cost_report(output_path: str) -> Optional[str]:
         ce_client = boto3.client('ce', region_name=os.getenv('AWS_CE_REGION', 'us-east-1'))
         budgets_client = boto3.client('budgets', region_name=os.getenv('AWS_CE_REGION', 'us-east-1'))
         budgets_client = boto3.client('budgets', region_name='us-east-1')
-        
-        today = datetime.now().date()
+def generate_cost_report(output_path, region=None):
+    """Generate comprehensive 6-month cost analysis report"""
+    try:
+        ce_client = boto3.client('ce', region_name=region or 'us-east-1')
+        budgets_client = boto3.client('budgets', region_name=region or 'us-east-1')
         six_months_ago = today - timedelta(days=180)
         
         # Get 6-month cost trends by service
