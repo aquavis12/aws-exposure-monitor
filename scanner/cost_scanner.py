@@ -16,8 +16,11 @@ def scan_cost_optimization(region=None):
     
     try:
         # Cost Explorer is only available in us-east-1
-        ce_client = boto3.client('ce', region_name='us-east-1')
-        budgets_client = boto3.client('budgets', region_name='us-east-1')
+import os
+
+# Cost Explorer is only available in us-east-1 by default
+ce_client = boto3.client('ce', region_name=os.getenv('AWS_CE_REGION', 'us-east-1'))
+budgets_client = boto3.client('budgets', region_name=os.getenv('AWS_CE_REGION', 'us-east-1'))
         
         # Get current and last month dates
         today = datetime.now().date()
