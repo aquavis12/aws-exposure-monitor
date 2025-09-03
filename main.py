@@ -98,6 +98,9 @@ def parse_args():
     parser.add_argument('--json-report',
                         help='Generate JSON report and save to specified path')
     
+    parser.add_argument('--cost-report',
+                        help='Generate comprehensive cost analysis report')
+    
 
     
     parser.add_argument('--terraform-dir',
@@ -290,7 +293,7 @@ def main():
         scan_types = get_scanner_ids()
     elif args.scan:
         # Check if the scan argument is a category name
-        categories = ['compute', 'security', 'database', 'storage', 'networking']
+        categories = ['compute', 'security', 'database', 'storage', 'networking', 'cost']
         if args.scan.lower() in categories:
             category = args.scan.lower()
             scan_types = get_scanner_ids_by_category(category)
@@ -387,7 +390,8 @@ def main():
             category = 'Storage'
         elif resource_type in ['VPC', 'Subnet', 'Internet Gateway', 'Route Table', 'Network ACL', 'Elastic IP', 'API Gateway', 'CloudFront Distribution']:
             category = 'Networking'
-
+        elif resource_type in ['Cost Analysis', 'Budget Alert', 'Reserved Instance Opportunity', 'Budget Configuration']:
+            category = 'Cost'
         else:
             category = 'Other'
         
@@ -449,8 +453,25 @@ def main():
             report_path = generate_json_report(all_findings, str(json_path))
             if report_path:
                 print(f"\nJSON report generated: {colorize(report_path, ConsoleColors.BOLD_GREEN)}")
+    # Generate cost report if requested
+    if args.cost_report:
+        try:
+            if not args.cost_report.lower().endswith('.html'):
+                print(f"Warning: Cost report path should end with .html")
+            from reporter.cost_reporter import generate_cost_report
+    
+    # Generate cost report if requested
+    if args.cost_report:
+        try:
+            from reporter.cost_reporter import generate_cost_report
+            cost_path = Path(args.cost_report).resolve()
+            if not cost_path.parent.exists():
+                cost_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path = generate_cost_report(str(cost_path))
+            if report_path:
+                print(f"\nCost analysis report generated: {colorize(report_path, ConsoleColors.BOLD_GREEN)}")
         except Exception as e:
-            print(f"Error generating JSON report: {colorize(str(e), ConsoleColors.BOLD_RED)}")
+            print(f"Error generating cost report: {colorize(str(e), ConsoleColors.BOLD_RED)}")
     
 
     

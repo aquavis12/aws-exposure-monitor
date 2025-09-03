@@ -236,6 +236,15 @@ def get_available_scanners() -> ScannerRegistry:
         
 
         
+        # Cost Category
+        'cost': {
+            'name': 'Cost Optimization',
+            'module': 'cost_scanner',
+            'function': 'scan_cost_optimization',
+            'description': 'Analyzes AWS costs using Cost Explorer and Budgets APIs for optimization opportunities',
+            'category': 'Cost'
+        },
+        
         # Additional Storage
         'efs': {
             'name': 'EFS File Systems',
