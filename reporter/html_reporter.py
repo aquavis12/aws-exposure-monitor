@@ -1,284 +1,190 @@
 """
-HTML Reporter Module - Generates beautiful HTML reports from findings
+HTML Reporter Module - Generates clean HTML reports from findings
 """
 import os
-import json
 from datetime import datetime
 from jinja2 import Template
 
 
-
 def generate_html_report(findings, output_path=None):
-    """
-    Generate a visually appealing HTML report from findings
-    
-    Args:
-        findings (list): List of findings to include in the report
-        output_path (str): Path to save the HTML report (if None, a default path is used)
-    
-    Returns:
-        str: Path to the generated HTML report
-    """
+    """Generate a clean HTML report from findings"""
     if not findings:
         print("No findings to generate report")
         return None
     
-    # Default output path if none provided
     if not output_path:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         output_path = f"aws_exposure_report_{timestamp}.html"
     
-    # Group findings by resource type
-    resource_types = {}
-    for finding in findings:
-        resource_type = finding.get('ResourceType', 'Unknown')
-        if resource_type not in resource_types:
-            resource_types[resource_type] = []
-        resource_types[resource_type].append(finding)
-    
-    # Group findings by risk level
-    risk_levels = {}
-    for finding in findings:
-        risk = finding.get('Risk', 'UNKNOWN')
-        if risk not in risk_levels:
-            risk_levels[risk] = []
-        risk_levels[risk].append(finding)
-    
-    # Group findings by category
-    categories = {
-        'Compute': [],
-        'Security': [],
-        'Database': [],
-        'Storage': [],
-        'Networking': [],
-        'Cost': [],
-        'Other': []
+    # Category mappings
+    category_mappings = {
+        'Compute': ['EC2 Instance', 'Lambda Function', 'ECS Cluster', 'EKS Cluster', 'Lightsail Instance', 'AMI', 'ECR Repository'],
+        'Security': ['IAM User', 'IAM Role', 'IAM Policy', 'IAM Access Key', 'Security Group', 'KMS Key', 'CloudTrail', 'GuardDuty', 'WAF Web ACL', 'Inspector', 'Inspector Configuration', 'Security Hub', 'Security Hub Configuration', 'Secrets Manager Secret', 'Tagging Compliance', 'CloudWatch Log Group', 'CloudWatch Logs'],
+        'Database': ['RDS Instance', 'RDS Snapshot', 'DynamoDB Table', 'Aurora Cluster', 'ElastiCache Cluster', 'RDS Parameter Group', 'Elasticsearch Domain', 'OpenSearch Domain', 'Redshift Cluster'],
+        'Storage': ['S3 Bucket', 'S3 Object', 'EBS Volume', 'EBS Snapshot', 'EFS File System'],
+        'Networking': ['VPC', 'Subnet', 'Internet Gateway', 'Route Table', 'Network ACL', 'Elastic IP', 'API Gateway', 'CloudFront Distribution', 'Load Balancer', 'SNS Topic', 'SQS Queue', 'AppSync API'],
+        'AI': ['SageMaker Notebook', 'SageMaker Endpoint', 'Bedrock Model', 'Q Business Application']
     }
     
-    # Categorize findings based on resource type
+    # Determine categories present in findings
+    categories_found = set()
     for finding in findings:
         resource_type = finding.get('ResourceType', 'Unknown')
-        
-        if resource_type in ['EC2 Instance', 'Lambda Function', 'ECS Cluster', 'EKS Cluster', 'Lightsail Instance']:
-            categories['Compute'].append(finding)
-        elif resource_type in ['IAM User', 'IAM Role', 'IAM Policy', 'Security Group', 'KMS Key', 'CloudTrail', 'GuardDuty', 'WAF Web ACL']:
-            categories['Security'].append(finding)
-        elif resource_type in ['RDS Instance', 'RDS Snapshot', 'DynamoDB Table', 'Aurora Cluster', 'ElastiCache Cluster', 'RDS Parameter Group']:
-            categories['Database'].append(finding)
-        elif resource_type in ['S3 Bucket', 'S3 Object', 'EBS Volume', 'EBS Snapshot', 'EFS File System']:
-            categories['Storage'].append(finding)
-        elif resource_type in ['VPC', 'Subnet', 'Internet Gateway', 'Route Table', 'Network ACL', 'Elastic IP', 'API Gateway', 'CloudFront Distribution']:
-            categories['Networking'].append(finding)
-        elif 'Cost' in finding.get('Issue', '') or resource_type == 'Cost Optimization':
-            categories['Cost'].append(finding)
-        else:
-            categories['Other'].append(finding)
+        for cat_name, cat_types in category_mappings.items():
+            if resource_type in cat_types:
+                categories_found.add(cat_name)
+                break
     
-    # Remove empty categories
-    categories = {k: v for k, v in categories.items() if v}
+    # If only one category found, group all findings there
+    if len(categories_found) == 1:
+        single_category = list(categories_found)[0]
+        categories = {single_category: findings}
+    else:
+        # Multiple categories - organize normally
+        categories = {}
+        for finding in findings:
+            resource_type = finding.get('ResourceType', 'Unknown')
+            assigned = False
+            for cat_name, cat_types in category_mappings.items():
+                if resource_type in cat_types:
+                    if cat_name not in categories:
+                        categories[cat_name] = []
+                    categories[cat_name].append(finding)
+                    assigned = True
+                    break
+            if not assigned:
+                if 'Other' not in categories:
+                    categories['Other'] = []
+                categories['Other'].append(finding)
     
-    # Sort risk levels by severity
-    risk_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'UNKNOWN': 4}
-    sorted_risk_levels = sorted(risk_levels.items(), key=lambda x: risk_order.get(x[0], 5))
+    # Risk level counts
+    risk_counts = {}
+    for finding in findings:
+        risk = finding.get('Risk', 'UNKNOWN')
+        risk_counts[risk] = risk_counts.get(risk, 0) + 1
     
-    # Count findings by region
-    regions = {}
+    # Resource type counts
+    resource_counts = {}
+    for finding in findings:
+        resource_type = finding.get('ResourceType', 'Unknown')
+        resource_counts[resource_type] = resource_counts.get(resource_type, 0) + 1
+    
+    # Region counts
+    region_counts = {}
     for finding in findings:
         region = finding.get('Region', 'Unknown')
-        if region not in regions:
-            regions[region] = 0
-        regions[region] += 1
+        region_counts[region] = region_counts.get(region, 0) + 1
     
-    # Remove security score calculation
-    security_score = {'score': 0, 'label': 'N/A', 'description': 'Security scoring disabled', 'css_class': 'score-disabled'}
-    
-    # Prepare data for the template
+    # Template data
     template_data = {
         'report_date': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'total_findings': len(findings),
-        'resource_types': resource_types,
-        'risk_levels': dict(sorted_risk_levels),
-        'regions': regions,
-        'findings': findings,
-        'security_score': security_score,
-        'categories': categories
+        'categories': categories,
+        'risk_counts': risk_counts,
+        'resource_counts': resource_counts,
+        'region_counts': region_counts,
+        'findings': findings
     }
     
-    # Load HTML template
+    # HTML template
     html_template = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AWS Public Resource Exposure Monitor</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <title>AWS Security Report</title>
     <style>
-        :root {
-            --primary-color: #232f3e;
-            --secondary-color: #ff9900;
-            --critical-color: #d13212;
-            --high-color: #ff9900;
-            --medium-color: #2b7489;
-            --low-color: #1e88e5;
-            --unknown-color: #757575;
-            --bg-light: #f9f9f9;
-            --bg-white: #ffffff;
-            --text-dark: #232f3e;
-            --text-light: #666666;
-            --border-color: #e0e0e0;
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --radius: 8px;
-            --score-excellent: #4caf50;
-            --score-good: #8bc34a;
-            --score-fair: #ffeb3b;
-            --score-poor: #ff9800;
-            --score-critical: #f44336;
-        }
-        
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
-            font-family: 'Roboto', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             line-height: 1.6;
-            color: var(--text-dark);
-            background-color: var(--bg-light);
-            padding: 0;
-            margin: 0;
+            color: #2d3748;
+            background: #f7fafc;
         }
         
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
         
         header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #37475a 100%);
+            background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
             color: white;
             padding: 30px 0;
             margin-bottom: 30px;
-            box-shadow: var(--shadow);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         
-        header .container {
+        h1 { font-size: 28px; font-weight: 700; margin-bottom: 10px; }
+        .subtitle { font-size: 16px; opacity: 0.9; }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #3182ce;
+            transition: transform 0.2s;
+        }
+        
+        .stat-card:hover { transform: translateY(-2px); }
+        
+        .stat-number {
+            font-size: 32px;
+            font-weight: 800;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .risk-critical { border-left-color: #e53e3e; }
+        .risk-high { border-left-color: #dd6b20; }
+        .risk-medium { border-left-color: #3182ce; }
+        .risk-low { border-left-color: #38a169; }
+        .risk-info { border-left-color: #d69e2e; }
+        
+        .section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            background: #f7fafc;
+            padding: 20px 24px;
+            border-bottom: 1px solid #e2e8f0;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 15px;
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2d3748;
         }
         
-        .logo svg {
-            width: 40px;
-            height: 40px;
-            fill: var(--secondary-color);
-        }
-        
-        h1, h2, h3, h4 {
-            margin-bottom: 15px;
-            font-weight: 500;
-        }
-        
-        h1 {
-            font-size: 28px;
+        .section-count {
+            background: #3182ce;
             color: white;
-        }
-        
-        h2 {
-            font-size: 24px;
-            color: var(--primary-color);
-            border-bottom: 2px solid var(--secondary-color);
-            padding-bottom: 10px;
-            margin-top: 40px;
-        }
-        
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 40px;
-        }
-        
-        .summary-card {
-            background-color: var(--bg-white);
-            border-radius: var(--radius);
-            padding: 20px;
-            box-shadow: var(--shadow);
-            transition: transform 0.3s ease;
-        }
-        
-        .summary-card:hover {
-            transform: translateY(-5px);
-        }
-        
-        .summary-card h3 {
-            font-size: 18px;
-            margin-bottom: 10px;
-        }
-        
-        .summary-card .count {
-            font-size: 36px;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
-        
-        .card-critical {
-            border-top: 4px solid var(--critical-color);
-        }
-        
-        .card-high {
-            border-top: 4px solid var(--high-color);
-        }
-        
-        .card-medium {
-            border-top: 4px solid var(--medium-color);
-        }
-        
-        .card-low {
-            border-top: 4px solid var(--low-color);
-        }
-        
-        .card-total {
-            border-top: 4px solid var(--secondary-color);
-        }
-        
-        .charts-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 20px;
-            margin-bottom: 40px;
-        }
-        
-        .chart-card {
-            background-color: var(--bg-white);
-            border-radius: var(--radius);
-            padding: 20px;
-            box-shadow: var(--shadow);
-        }
-        
-        .chart-title {
-            font-size: 18px;
-            margin-bottom: 15px;
-            color: var(--primary-color);
-            text-align: center;
-        }
-        
-        .table-container {
-            background-color: var(--bg-white);
-            border-radius: var(--radius);
-            padding: 20px;
-            box-shadow: var(--shadow);
-            margin-bottom: 30px;
-            overflow-x: auto;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 14px;
+            font-weight: 500;
         }
         
         table {
@@ -287,644 +193,197 @@ def generate_html_report(findings, output_path=None):
         }
         
         th {
-            background-color: var(--primary-color);
+            background: #2d3748;
             color: white;
-            padding: 12px 15px;
+            padding: 16px 20px;
             text-align: left;
-            font-weight: 500;
-        }
-        
-        th:first-child {
-            border-top-left-radius: 6px;
-        }
-        
-        th:last-child {
-            border-top-right-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
         }
         
         td {
-            padding: 12px 15px;
-            border-bottom: 1px solid var(--border-color);
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
         }
         
-        tr:nth-child(even) {
-            background-color: rgba(0, 0, 0, 0.02);
-        }
-        
-        tr:hover {
-            background-color: rgba(255, 153, 0, 0.05);
-        }
+        tr:hover { background: #f7fafc; }
         
         .badge {
             display: inline-block;
             padding: 4px 12px;
-            border-radius: 20px;
+            border-radius: 12px;
             font-size: 12px;
-            font-weight: 500;
-            color: white;
+            font-weight: 600;
             text-transform: uppercase;
-        }
-        
-        .badge-critical {
-            background-color: var(--critical-color);
-        }
-        
-        .badge-high {
-            background-color: var(--high-color);
-        }
-        
-        .badge-medium {
-            background-color: var(--medium-color);
-        }
-        
-        .badge-low {
-            background-color: var(--low-color);
-        }
-        
-        .badge-unknown {
-            background-color: var(--unknown-color);
-        }
-        
-        .resource-section {
-            margin-bottom: 40px;
-        }
-        
-        .resource-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .resource-count {
-            background-color: var(--secondary-color);
             color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 500;
         }
         
-        .footer {
-            background-color: var(--primary-color);
-            color: white;
-            padding: 20px 0;
-            text-align: center;
-            margin-top: 50px;
-        }
+        .badge-critical { background: #e53e3e; }
+        .badge-high { background: #dd6b20; }
+        .badge-medium { background: #3182ce; }
+        .badge-low { background: #38a169; }
+        .badge-info { background: #d69e2e; }
+        .badge-unknown { background: #718096; }
         
-        .footer p {
-            margin: 5px 0;
-            font-size: 14px;
-        }
-        
-        .footer a {
-            color: var(--secondary-color);
-            text-decoration: none;
-        }
-        
-        .footer a:hover {
-            text-decoration: underline;
+        .recommendation {
+            background: #fef5e7;
+            border-left: 3px solid #d69e2e;
+            padding: 12px;
+            border-radius: 0 6px 6px 0;
+            font-size: 13px;
         }
         
         .filters {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             margin-bottom: 20px;
             flex-wrap: wrap;
         }
         
-        .filter-button {
-            background-color: var(--bg-white);
-            border: 1px solid var(--border-color);
+        .filter-btn {
+            background: white;
+            border: 1px solid #e2e8f0;
+            padding: 8px 16px;
             border-radius: 20px;
-            padding: 8px 15px;
             cursor: pointer;
             font-size: 14px;
-            transition: all 0.3s ease;
+            transition: all 0.2s;
         }
         
-        .filter-button:hover, .filter-button.active {
-            background-color: var(--secondary-color);
+        .filter-btn:hover, .filter-btn.active {
+            background: #3182ce;
             color: white;
-            border-color: var(--secondary-color);
+            border-color: #3182ce;
         }
         
-        .recommendation {
-            background-color: rgba(255, 153, 0, 0.1);
-            border-left: 3px solid var(--secondary-color);
-            padding: 10px 15px;
-            border-radius: 0 4px 4px 0;
-        }
-        
-        .no-findings {
-            padding: 20px;
+        footer {
+            background: #2d3748;
+            color: white;
             text-align: center;
-            background-color: var(--bg-white);
-            border-radius: var(--radius);
-            margin-bottom: 30px;
-            box-shadow: var(--shadow);
-            color: var(--text-light);
-            font-style: italic;
-        }
-        
-        .security-score-container {
-            background-color: var(--bg-white);
-            border-radius: var(--radius);
-            padding: 20px;
-            box-shadow: var(--shadow);
-            margin-bottom: 30px;
-            text-align: center;
-        }
-        
-        .security-score-title {
-            font-size: 24px;
-            margin-bottom: 15px;
-            color: var(--primary-color);
-        }
-        
-        .security-score {
-            font-size: 72px;
-            font-weight: 700;
-            margin: 20px 0;
-        }
-        
-        .score-excellent {
-            color: var(--score-excellent);
-        }
-        
-        .score-good {
-            color: var(--score-good);
-        }
-        
-        .score-fair {
-            color: var(--score-fair);
-        }
-        
-        .score-poor {
-            color: var(--score-poor);
-        }
-        
-        .score-critical {
-            color: var(--score-critical);
-        }
-        
-        .score-label {
-            font-size: 24px;
-            font-weight: 500;
-            margin-bottom: 10px;
-        }
-        
-        .score-description {
-            font-size: 16px;
-            color: var(--text-light);
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        
-        .score-meter {
-            width: 100%;
-            height: 20px;
-            background-color: #e0e0e0;
-            border-radius: 10px;
-            margin: 20px 0;
-            overflow: hidden;
-            position: relative;
-        }
-        
-        .score-meter-fill {
-            height: 100%;
-            border-radius: 10px;
-            background: linear-gradient(90deg, var(--score-critical) 0%, var(--score-poor) 25%, var(--score-fair) 50%, var(--score-good) 75%, var(--score-excellent) 100%);
-            transition: width 1s ease-in-out;
-        }
-        
-        .score-marker {
-            position: absolute;
-            top: -10px;
-            width: 4px;
-            height: 40px;
-            background-color: var(--primary-color);
-            transform: translateX(-50%);
+            padding: 20px 0;
+            margin-top: 40px;
         }
         
         @media (max-width: 768px) {
-            .charts-container {
-                grid-template-columns: 1fr;
-            }
-            
-            .summary-grid {
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            }
-            
-            header .container {
-                flex-direction: column;
-                text-align: center;
-            }
-            
-            .logo {
-                margin-bottom: 15px;
-                justify-content: center;
-            }
+            .stats-grid { grid-template-columns: 1fr; }
+            .container { padding: 15px; }
+            table { font-size: 12px; }
+            th, td { padding: 12px 16px; }
         }
     </style>
 </head>
 <body>
     <header>
         <div class="container">
-            <div class="logo">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
-                </svg>
-                <h1>AWS Public Resource Exposure Monitor</h1>
-            </div>
-            <div class="report-date">
-                Generated on: {{ report_date }}
-            </div>
+            <h1>AWS Security Report</h1>
+            <div class="subtitle">Generated on {{ report_date }}</div>
         </div>
     </header>
     
     <div class="container">
-
-        
-        <div class="summary-grid">
-            <div class="summary-card card-total">
-                <h3>Total Findings</h3>
-                <div class="count">{{ total_findings }}</div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">{{ total_findings }}</div>
+                <div class="stat-label">Total Findings</div>
             </div>
-            {% for risk, items in risk_levels.items() %}
-            <div class="summary-card card-{{ risk.lower() }}">
-                <h3>{{ risk }} Risk</h3>
-                <div class="count">{{ items|length }}</div>
+            <div class="stat-card">
+                <div class="stat-number">{{ region_counts|length }}</div>
+                <div class="stat-label">Regions Scanned</div>
+            </div>
+            {% for risk, count in risk_counts.items() %}
+            <div class="stat-card risk-{{ risk.lower() }}">
+                <div class="stat-number">{{ count }}</div>
+                <div class="stat-label">{{ risk }} Risk</div>
             </div>
             {% endfor %}
         </div>
-        
-        <h2>Security Findings Overview</h2>
-        
-        <div class="charts-container">
-            <div class="chart-card">
-                <div class="chart-title">Findings by Resource Type</div>
-                <canvas id="resourceTypeChart"></canvas>
-            </div>
-            <div class="chart-card">
-                <div class="chart-title">Findings by Risk Level</div>
-                <canvas id="riskLevelChart"></canvas>
-            </div>
-        </div>
-        
-        <div class="chart-card">
-            <div class="chart-title">Findings by AWS Region</div>
-            <canvas id="regionChart"></canvas>
-        </div>
-        
-        <h2>Findings by Category</h2>
         
         <div class="filters">
-            <button class="filter-button active" data-filter="all">All</button>
-            {% for risk in risk_levels.keys() %}
-            <button class="filter-button" data-filter="{{ risk.lower() }}">{{ risk }}</button>
+            <button class="filter-btn active" data-filter="all">All</button>
+            {% for risk in risk_counts.keys() %}
+            <button class="filter-btn" data-filter="risk-{{ risk.lower() }}">{{ risk }}</button>
             {% endfor %}
-            <button class="filter-button" data-filter="category-compute">Compute</button>
-            <button class="filter-button" data-filter="category-security">Security</button>
-            <button class="filter-button" data-filter="category-database">Database</button>
-            <button class="filter-button" data-filter="category-storage">Storage</button>
-            <button class="filter-button" data-filter="category-networking">Networking</button>
-            <button class="filter-button" data-filter="category-cost">Cost</button>
+            {% for category in categories.keys() %}
+            <button class="filter-btn" data-filter="category-{{ category.lower() }}">{{ category }}</button>
+            {% endfor %}
         </div>
         
-        <div id="category-sections">
-            {% for category_name, items in categories.items() %}
-            <div class="category-section" data-category="{{ category_name.lower() }}">
-                <div class="resource-header">
-                    <h2>{{ category_name }}</h2>
-                    <span class="resource-count">{{ items|length }} findings</span>
-                </div>
-                
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Resource Type</th>
-                                <th>Resource ID</th>
-                                <th>Region</th>
-                                <th>Risk</th>
-                                <th>Issue</th>
-                                <th>Recommendation</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for finding in items %}
-                            <tr class="finding-row risk-{{ finding.Risk|lower }} category-{{ category_name.lower() }}">
-                                <td>{{ finding.ResourceType }}</td>
-                                <td>{{ finding.ResourceName if finding.ResourceName else finding.ResourceId }}</td>
-                                <td>{{ finding.Region }}</td>
-                                <td>
-                                    <span class="badge badge-{{ finding.Risk|lower }}">{{ finding.Risk }}</span>
-                                </td>
-                                <td>{{ finding.Issue }}</td>
-                                <td class="recommendation">{{ finding.Recommendation }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+        {% for category_name, category_findings in categories.items() %}
+        <div class="section category-{{ category_name.lower() }}">
+            <div class="section-header">
+                <div class="section-title">{{ category_name }}</div>
+                <div class="section-count">{{ category_findings|length }} findings</div>
             </div>
-            {% endfor %}
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Resource</th>
+                        <th>Name</th>
+                        <th>Region</th>
+                        <th>Risk</th>
+                        <th>Issue</th>
+                        <th>Recommendation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for finding in category_findings %}
+                    <tr class="finding-row risk-{{ finding.Risk.lower() }} category-{{ category_name.lower() }}">
+                        <td>{{ finding.ResourceType }}</td>
+                        <td>{{ finding.ResourceName or finding.ResourceId }}</td>
+                        <td>{{ finding.Region }}</td>
+                        <td><span class="badge badge-{{ finding.Risk.lower() }}">{{ finding.Risk }}</span></td>
+                        <td>{{ finding.Issue }}</td>
+                        <td><div class="recommendation">{{ finding.Recommendation }}</div></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-        
-        <h2>Detailed Findings by Resource Type</h2>
-        
-        <div id="resource-sections">
-            {% for resource_type, items in resource_types.items() %}
-            <div class="resource-section" data-resource-type="{{ resource_type }}">
-                <div class="resource-header">
-                    <h2>{{ resource_type }}</h2>
-                    <span class="resource-count">{{ items|length }} findings</span>
-                </div>
-                
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Resource ID</th>
-                                <th>Resource Name</th>
-                                <th>Region</th>
-                                <th>Risk</th>
-                                <th>Issue</th>
-                                <th>Recommendation</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for finding in items %}
-                            <tr class="finding-row risk-{{ finding.Risk|lower }}">
-                                <td>{{ finding.ResourceId }}</td>
-                                <td>{{ finding.ResourceName if finding.ResourceName else finding.ResourceId }}</td>
-                                <td>{{ finding.Region }}</td>
-                                <td>
-                                    <span class="badge badge-{{ finding.Risk|lower }}">{{ finding.Risk }}</span>
-                                </td>
-                                <td>{{ finding.Issue }}</td>
-                                <td class="recommendation">{{ finding.Recommendation }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
+        {% endfor %}
     </div>
     
-    <footer class="footer">
+    <footer>
         <div class="container">
-            <p>AWS Public Resource Exposure Monitor - Security Scan Report</p>
-            <p>Scan completed on {{ report_date }}</p>
+            <p>AWS Security Report - Generated {{ report_date }}</p>
         </div>
     </footer>
     
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        // Set up color scheme
-        const colors = {
-            resourceTypes: [
-                '#FF9900', '#232F3E', '#1E88E5', '#00A1B0', '#EB5F07', 
-                '#7AA116', '#8C4FFF', '#FF5252', '#00C853', '#AA00FF',
-                '#0097A7', '#FF6D00', '#6200EA', '#2962FF', '#00BFA5'
-            ],
-            riskLevels: {
-                'CRITICAL': '#d13212',
-                'HIGH': '#ff9900',
-                'MEDIUM': '#2b7489',
-                'LOW': '#1e88e5',
-                'UNKNOWN': '#757575'
-            }
-        };
-
-        // Resource Type Chart
-        const resourceTypeCtx = document.getElementById('resourceTypeChart').getContext('2d');
-        const resourceTypeLabels = [{% for resource_type, items in resource_types.items() %}'{{ resource_type }}',{% endfor %}];
-        const resourceTypeData = [{% for resource_type, items in resource_types.items() %}{{ items|length }},{% endfor %}];
-        
-        new Chart(resourceTypeCtx, {
-            type: 'doughnut',
-            data: {
-                labels: resourceTypeLabels,
-                datasets: [{
-                    data: resourceTypeData,
-                    backgroundColor: colors.resourceTypes.slice(0, resourceTypeLabels.length),
-                    borderWidth: 1,
-                    borderColor: '#ffffff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            boxWidth: 15,
-                            padding: 15
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const label = context.label || '';
-                                const value = context.raw || 0;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = Math.round((value / total) * 100);
-                                return `${label}: ${value} (${percentage}%)`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        
-        // Risk Level Chart
-        const riskLevelCtx = document.getElementById('riskLevelChart').getContext('2d');
-        const riskLevelLabels = [{% for risk, items in risk_levels.items() %}'{{ risk }}',{% endfor %}];
-        const riskLevelData = [{% for risk, items in risk_levels.items() %}{{ items|length }},{% endfor %}];
-        const riskLevelColors = riskLevelLabels.map(label => colors.riskLevels[label] || '#757575');
-        
-        new Chart(riskLevelCtx, {
-            type: 'pie',
-            data: {
-                labels: riskLevelLabels,
-                datasets: [{
-                    data: riskLevelData,
-                    backgroundColor: riskLevelColors,
-                    borderWidth: 1,
-                    borderColor: '#ffffff'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: {
-                            boxWidth: 15,
-                            padding: 15
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const label = context.label || '';
-                                const value = context.raw || 0;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = Math.round((value / total) * 100);
-                                return `${label}: ${value} (${percentage}%)`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        
-        // Region Chart
-        const regionCtx = document.getElementById('regionChart').getContext('2d');
-        const regionLabels = [{% for region, count in regions.items() %}'{{ region }}',{% endfor %}];
-        const regionData = [{% for region, count in regions.items() %}{{ count }},{% endfor %}];
-        
-        new Chart(regionCtx, {
-            type: 'bar',
-            data: {
-                labels: regionLabels,
-                datasets: [{
-                    label: 'Findings',
-                    data: regionData,
-                    backgroundColor: '#FF9900',
-                    borderColor: '#232F3E',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        }
-                    }
-                }
-            }
-        });
-        
-        // Filter functionality
         document.addEventListener('DOMContentLoaded', function() {
-            const filterButtons = document.querySelectorAll('.filter-button');
-            const findingRows = document.querySelectorAll('.finding-row');
-            const resourceSections = document.querySelectorAll('.resource-section');
-            const categorySections = document.querySelectorAll('.category-section');
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            const sections = document.querySelectorAll('.section');
+            const rows = document.querySelectorAll('.finding-row');
             
-            filterButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const filter = this.getAttribute('data-filter');
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const filter = this.dataset.filter;
                     
                     // Update active button
-                    filterButtons.forEach(btn => btn.classList.remove('active'));
+                    filterBtns.forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
                     
-                    // Filter rows
-                    findingRows.forEach(row => {
-                        if (filter === 'all') {
-                            row.style.display = '';
-                        } else if (filter.startsWith('category-')) {
-                            // Category filter
-                            const category = filter.replace('category-', '');
-                            if (row.classList.contains(filter)) {
-                                row.style.display = '';
-                            } else {
-                                row.style.display = 'none';
-                            }
-                        } else {
-                            // Risk level filter
-                            if (row.classList.contains(`risk-${filter}`)) {
-                                row.style.display = '';
-                            } else {
-                                row.style.display = 'none';
-                            }
-                        }
-                    });
-                    
-                    // Hide empty resource sections
-                    resourceSections.forEach(section => {
-                        const visibleRows = section.querySelectorAll('.finding-row[style="display: none;"]').length;
-                        const totalRows = section.querySelectorAll('.finding-row').length;
+                    // Filter content
+                    if (filter === 'all') {
+                        sections.forEach(s => s.style.display = 'block');
+                        rows.forEach(r => r.style.display = '');
+                    } else if (filter.startsWith('category-')) {
+                        sections.forEach(s => {
+                            s.style.display = s.classList.contains(filter) ? 'block' : 'none';
+                        });
+                        rows.forEach(r => r.style.display = '');
+                    } else if (filter.startsWith('risk-')) {
+                        sections.forEach(s => s.style.display = 'block');
+                        rows.forEach(r => {
+                            r.style.display = r.classList.contains(filter) ? '' : 'none';
+                        });
                         
-                        if (visibleRows === totalRows) {
-                            section.style.display = 'none';
-                        } else {
-                            section.style.display = '';
-                            
-                            // Update the count in the resource header
-                            const visibleCount = totalRows - visibleRows;
-                            const countElement = section.querySelector('.resource-count');
-                            if (countElement) {
-                                countElement.textContent = `${visibleCount} findings`;
-                            }
-                        }
-                    });
-                    
-                    // Hide empty category sections
-                    categorySections.forEach(section => {
-                        const visibleRows = section.querySelectorAll('.finding-row[style="display: none;"]').length;
-                        const totalRows = section.querySelectorAll('.finding-row').length;
-                        
-                        if (visibleRows === totalRows) {
-                            section.style.display = 'none';
-                        } else {
-                            section.style.display = '';
-                            
-                            // Update the count in the category header
-                            const visibleCount = totalRows - visibleRows;
-                            const countElement = section.querySelector('.resource-count');
-                            if (countElement) {
-                                countElement.textContent = `${visibleCount} findings`;
-                            }
-                        }
-                    });
-                    
-                    // Check if all sections are hidden
-                    const allResourceSectionsHidden = Array.from(resourceSections).every(section => 
-                        section.style.display === 'none'
-                    );
-                    
-                    const allCategorySectionsHidden = Array.from(categorySections).every(section => 
-                        section.style.display === 'none'
-                    );
-                    
-                    // Show a message if no findings match the filter
-                    let noFindingsMessage = document.getElementById('no-findings-message');
-                    if (allResourceSectionsHidden && allCategorySectionsHidden) {
-                        if (!noFindingsMessage) {
-                            noFindingsMessage = document.createElement('div');
-                            noFindingsMessage.id = 'no-findings-message';
-                            noFindingsMessage.className = 'no-findings';
-                            
-                            if (filter.startsWith('category-')) {
-                                const category = filter.replace('category-', '');
-                                noFindingsMessage.textContent = `No findings in ${category.toUpperCase()} category to display`;
-                            } else {
-                                noFindingsMessage.textContent = `No ${filter.toUpperCase()} risk findings to display`;
-                            }
-                            
-                            document.getElementById('resource-sections').appendChild(noFindingsMessage);
-                        }
-                    } else if (noFindingsMessage) {
-                        noFindingsMessage.remove();
+                        // Hide empty sections
+                        sections.forEach(s => {
+                            const visibleRows = s.querySelectorAll('.finding-row:not([style*="display: none"])');
+                            s.style.display = visibleRows.length > 0 ? 'block' : 'none';
+                        });
                     }
                 });
             });
@@ -934,13 +393,12 @@ def generate_html_report(findings, output_path=None):
 </html>
     """
     
-    # Render template
+    # Render and save
     template = Template(html_template)
     html_content = template.render(**template_data)
     
-    # Write to file
-    with open(output_path, 'w') as f:
+    with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html_content)
     
-    print(f"HTML report generated successfully: {output_path}")
+    print(f"HTML report generated: {output_path}")
     return output_path

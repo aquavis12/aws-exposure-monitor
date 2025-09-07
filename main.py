@@ -293,7 +293,7 @@ def main():
         scan_types = get_scanner_ids()
     elif args.scan:
         # Check if the scan argument is a category name
-        categories = ['compute', 'security', 'database', 'storage', 'networking', 'cost']
+        categories = ['compute', 'security', 'database', 'storage', 'networking', 'ai']
         if args.scan.lower() in categories:
             category = args.scan.lower()
             scan_types = get_scanner_ids_by_category(category)
@@ -390,8 +390,8 @@ def main():
             category = 'Storage'
         elif resource_type in ['VPC', 'Subnet', 'Internet Gateway', 'Route Table', 'Network ACL', 'Elastic IP', 'API Gateway', 'CloudFront Distribution']:
             category = 'Networking'
-        elif resource_type in ['Cost Analysis', 'Budget Alert', 'Reserved Instance Opportunity', 'Budget Configuration']:
-            category = 'Cost'
+        elif resource_type in ['SageMaker Notebook', 'SageMaker Endpoint', 'Bedrock Model Job', 'Bedrock Configuration', 'Q Business Application', 'Q Business Data Source']:
+            category = 'AI'
         else:
             category = 'Other'
         

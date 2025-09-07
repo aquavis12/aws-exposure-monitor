@@ -145,26 +145,46 @@ def scan_security_groups(region=None):
                                         public_cidr = cidr
                                         break
                             
+                            # Check for single IP SSH access (should be LOW risk)
+                            single_ip_ssh = False
+                            for ip_range in rule.get('IpRanges', []):
+                                cidr = ip_range.get('CidrIp')
+                                if '/32' in cidr and (from_port == 22 or to_port == 22):
+                                    single_ip_ssh = True
+                                    findings.append({
+                                        'ResourceType': 'Security Group',
+                                        'ResourceId': sg_id,
+                                        'ResourceName': sg_name,
+                                        'Region': current_region,
+                                        'Risk': 'LOW',
+                                        'Issue': f'Security group allows SSH access from single IP ({cidr})',
+                                        'Recommendation': 'Verify this IP address is authorized for SSH access'
+                                    })
+                            
                             if public_access:
                                 # Check if rule affects sensitive ports
                                 if from_port is not None and to_port is not None:
                                     for port in range(from_port, to_port + 1):
                                         if port in sensitive_ports:
-                                            risk_level = 'HIGH'
-                                            # SSH and RDP are particularly sensitive
-                                            if port in [22, 3389]:
+                                            # Database ports are critical
+                                            if port in [1433, 3306, 5432, 27017, 6379]:
                                                 risk_level = 'CRITICAL'
+                                            # SSH and RDP are high risk
+                                            elif port in [22, 3389]:
+                                                risk_level = 'HIGH'
+                                            # Web ports are medium risk
+                                            elif port in [80, 443]:
+                                                risk_level = 'MEDIUM'
+                                            else:
+                                                risk_level = 'HIGH'
                                                 
                                             findings.append({
                                                 'ResourceType': 'Security Group',
                                                 'ResourceId': sg_id,
                                                 'ResourceName': sg_name,
-                                                'ResourceDescription': sg_description,
-                                                'VpcId': vpc_id,
-                                                'AssociatedResources': associated_resources[:5],  # Limit to first 5
                                                 'Region': current_region,
                                                 'Risk': risk_level,
-                                                'Issue': f'Security group allows public access ({public_cidr}) to {sensitive_ports[port]} (port {port})',
+                                                'Issue': f'Security group allows public access to {sensitive_ports[port]} (port {port})',
                                                 'Recommendation': f'Restrict access to port {port} to specific IP ranges'
                                             })
                                             

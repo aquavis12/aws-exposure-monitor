@@ -236,13 +236,71 @@ def get_available_scanners() -> ScannerRegistry:
         
 
         
-        # Cost Category
-        'cost': {
-            'name': 'Cost Optimization',
-            'module': 'cost_scanner',
-            'function': 'scan_cost_optimization',
-            'description': 'Analyzes AWS costs using Cost Explorer and Budgets APIs for optimization opportunities',
-            'category': 'Cost'
+
+        
+        # Additional scanners
+        'appsync': {
+            'name': 'AppSync APIs',
+            'module': 'appsync',
+            'function': 'scan_appsync',
+            'description': 'Scans AppSync GraphQL APIs for security issues',
+            'category': 'Networking'
+        },
+        'sagemaker': {
+            'name': 'SageMaker Resources',
+            'module': 'sagemaker',
+            'function': 'scan_sagemaker',
+            'description': 'Scans SageMaker notebooks and endpoints for security issues',
+            'category': 'AI'
+        },
+        'bedrock': {
+            'name': 'Amazon Bedrock',
+            'module': 'bedrock',
+            'function': 'scan_bedrock',
+            'description': 'Scans Bedrock models and guardrails for security issues',
+            'category': 'AI'
+        },
+        'q-business': {
+            'name': 'Q Business Applications',
+            'module': 'q_business',
+            'function': 'scan_q_business',
+            'description': 'Scans Q Business applications for security issues',
+            'category': 'AI'
+        },
+        'eks': {
+            'name': 'EKS Clusters',
+            'module': 'eks',
+            'function': 'scan_eks',
+            'description': 'Scans EKS clusters for security configuration issues',
+            'category': 'Compute'
+        },
+        'ecs': {
+            'name': 'ECS Clusters',
+            'module': 'ecs',
+            'function': 'scan_ecs',
+            'description': 'Scans ECS clusters and services for security issues',
+            'category': 'Compute'
+        },
+        'tagging': {
+            'name': 'Resource Tagging',
+            'module': 'tagging',
+            'function': 'scan_resource_tagging',
+            'description': 'Checks resources for required compliance tags',
+            'category': 'Security'
+        },
+        'inspector': {
+            'name': 'Amazon Inspector',
+            'module': 'inspector',
+            'function': 'scan_inspector',
+            'description': 'Checks Inspector configuration status (informational)',
+            'category': 'Security'
+        },
+        'security-hub': {
+            'name': 'AWS Security Hub',
+            'module': 'security_hub',
+            'function': 'scan_security_hub',
+            'description': 'Checks Security Hub configuration status (informational)',
+            'category': 'Security'
         },
         
         # Additional Storage

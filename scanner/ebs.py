@@ -108,6 +108,41 @@ def scan_ebs_snapshots(region=None):
                                 'Issue': 'EBS snapshot is not encrypted',
                                 'Recommendation': 'Create encrypted snapshots and consider migrating data to encrypted volumes'
                             })
+                        
+                        # Check for old snapshots (older than 90 days)
+                        if start_time:
+                            current_time = datetime.now(start_time.tzinfo if hasattr(start_time, 'tzinfo') else None)
+                            snapshot_age = (current_time - start_time).days
+                            
+                            if snapshot_age > 90:
+                                findings.append({
+                                    'ResourceType': 'EBS Snapshot',
+                                    'ResourceId': snapshot_id,
+                                    'ResourceName': resource_name,
+                                    'VolumeId': volume_id,
+                                    'CreationDate': start_time_str,
+                                    'Region': current_region,
+                                    'Risk': 'MEDIUM',
+                                    'Issue': f'EBS snapshot is {snapshot_age} days old and not deleted',
+                                    'Recommendation': 'Delete old snapshots to reduce storage costs and security exposure'
+                                })
+                            
+                            # Check for snapshots without lifecycle management
+                            tags = {tag['Key']: tag['Value'] for tag in snapshot.get('Tags', [])}
+                            lifecycle_managed = any(key.lower() in ['lifecycle', 'backup', 'retention'] for key in tags.keys())
+                            
+                            if not lifecycle_managed and snapshot_age > 30:
+                                findings.append({
+                                    'ResourceType': 'EBS Snapshot',
+                                    'ResourceId': snapshot_id,
+                                    'ResourceName': resource_name,
+                                    'VolumeId': volume_id,
+                                    'CreationDate': start_time_str,
+                                    'Region': current_region,
+                                    'Risk': 'LOW',
+                                    'Issue': 'EBS snapshot lacks lifecycle management tags',
+                                    'Recommendation': 'Implement automated snapshot lifecycle management with proper tagging'
+                                })
             
             except ClientError as e:
                 pass

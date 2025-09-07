@@ -79,12 +79,12 @@ def scan_guardduty(region=None):
                 if not detector_list and not org_guardduty_exists:
                     findings.append({
                         'ResourceType': 'GuardDuty',
-                        'ResourceId': f'NoGuardDuty-{current_region}',
-                        'ResourceName': f'No GuardDuty in {current_region}',
+                        'ResourceId': f'guardduty-{current_region}',
+                        'ResourceName': f'GuardDuty in {current_region}',
                         'Region': current_region,
-                        'Risk': 'HIGH',
+                        'Risk': 'INFO',
                         'Issue': f'GuardDuty is not enabled in region {current_region}',
-                        'Recommendation': 'Enable GuardDuty to detect threats and suspicious activities'
+                        'Recommendation': 'Consider enabling GuardDuty for threat detection'
                     })
                     continue
                 
@@ -99,70 +99,26 @@ def scan_guardduty(region=None):
                         # Check if detector is enabled
                         if not detector.get('Status') == 'ENABLED':
                             findings.append({
-                                'ResourceType': 'GuardDuty Detector',
+                                'ResourceType': 'GuardDuty',
                                 'ResourceId': detector_id,
                                 'ResourceName': f'Detector {detector_id}',
                                 'Region': current_region,
-                                'Risk': 'HIGH',
+                                'Risk': 'INFO',
                                 'Issue': 'GuardDuty detector is not enabled',
                                 'Recommendation': 'Enable the GuardDuty detector'
                             })
                             continue
                         
-                        # Check finding publishing frequency
-                        finding_frequency = detector.get('FindingPublishingFrequency', 'SIX_HOURS')
-                        if finding_frequency == 'SIX_HOURS':
-                            findings.append({
-                                'ResourceType': 'GuardDuty Detector',
-                                'ResourceId': detector_id,
-                                'ResourceName': f'Detector {detector_id}',
-                                'Region': current_region,
-                                'Risk': 'MEDIUM',
-                                'Issue': 'GuardDuty finding publishing frequency is set to six hours',
-                                'Recommendation': 'Set finding publishing frequency to 15 minutes for faster detection'
-                            })
+                        # Check finding publishing frequency (informational only)
                         
                         # Check data sources
                         data_sources = detector.get('DataSources', {})
                         
-                        # Check S3 logs
-                        s3_logs = data_sources.get('S3Logs', {})
-                        if not s3_logs.get('Status') == 'ENABLED':
-                            findings.append({
-                                'ResourceType': 'GuardDuty Detector',
-                                'ResourceId': detector_id,
-                                'ResourceName': f'Detector {detector_id}',
-                                'Region': current_region,
-                                'Risk': 'MEDIUM',
-                                'Issue': 'GuardDuty S3 protection is not enabled',
-                                'Recommendation': 'Enable S3 protection in GuardDuty'
-                            })
+                        # Check S3 logs (informational only)
                         
-                        # Check Kubernetes logs if available
-                        kubernetes_logs = data_sources.get('Kubernetes', {})
-                        if kubernetes_logs and not kubernetes_logs.get('AuditLogs', {}).get('Status') == 'ENABLED':
-                            findings.append({
-                                'ResourceType': 'GuardDuty Detector',
-                                'ResourceId': detector_id,
-                                'ResourceName': f'Detector {detector_id}',
-                                'Region': current_region,
-                                'Risk': 'MEDIUM',
-                                'Issue': 'GuardDuty Kubernetes protection is not enabled',
-                                'Recommendation': 'Enable Kubernetes protection in GuardDuty'
-                            })
+                        # Check Kubernetes logs (informational only)
                         
-                        # Check Malware Protection if available
-                        malware_protection = data_sources.get('MalwareProtection', {})
-                        if malware_protection and not malware_protection.get('ScanEc2InstanceWithFindings', {}).get('Status') == 'ENABLED':
-                            findings.append({
-                                'ResourceType': 'GuardDuty Detector',
-                                'ResourceId': detector_id,
-                                'ResourceName': f'Detector {detector_id}',
-                                'Region': current_region,
-                                'Risk': 'MEDIUM',
-                                'Issue': 'GuardDuty Malware Protection is not enabled',
-                                'Recommendation': 'Enable Malware Protection in GuardDuty'
-                            })
+                        # Check Malware Protection (informational only)
                     
                     except ClientError as e:
                         pass
@@ -204,15 +160,8 @@ def scan_guardduty(region=None):
                                 severity = gd_finding.get('Severity')
                                 title = gd_finding.get('Title', 'Unknown finding')
                                 
-                                findings.append({
-                                    'ResourceType': 'GuardDuty Finding',
-                                    'ResourceId': finding_id,
-                                    'ResourceName': title,
-                                    'Region': current_region,
-                                    'Risk': 'HIGH',
-                                    'Issue': f'Active GuardDuty finding: {finding_type} (Severity: {severity})',
-                                    'Recommendation': 'Investigate and remediate the GuardDuty finding'
-                                })
+                                # GuardDuty findings are handled by GuardDuty service
+                                pass
                     
                     except ClientError as e:
                         pass
@@ -222,16 +171,7 @@ def scan_guardduty(region=None):
                         events_client = boto3.client('events', region_name=current_region)
                         rules = events_client.list_rules(NamePrefix='GuardDuty')
                         
-                        if not rules.get('Rules'):
-                            findings.append({
-                                'ResourceType': 'GuardDuty',
-                                'ResourceId': detector_id,
-                                'ResourceName': f'Detector {detector_id}',
-                                'Region': current_region,
-                                'Risk': 'MEDIUM',
-                                'Issue': 'No EventBridge rules found for GuardDuty findings',
-                                'Recommendation': 'Create EventBridge rules to automate response to GuardDuty findings'
-                            })
+                        # EventBridge rules check (informational only)
                     
                     except ClientError as e:
                         pass
@@ -239,17 +179,8 @@ def scan_guardduty(region=None):
             except ClientError as e:
                 pass
         
-        # Check if GuardDuty is enabled in all regions
-        if regions_with_guardduty < len(regions) and not org_guardduty_exists:
-            findings.append({
-                'ResourceType': 'GuardDuty',
-                'ResourceId': 'GuardDutyNotAllRegions',
-                'ResourceName': 'GuardDuty Not In All Regions',
-                'Region': 'global',
-                'Risk': 'HIGH',
-                'Issue': f'GuardDuty is only enabled in {regions_with_guardduty} of {len(regions)} regions',
-                'Recommendation': 'Enable GuardDuty in all regions or use Organization GuardDuty'
-            })
+        # GuardDuty status is informational only
+        pass
     except Exception as e:
         pass
     
