@@ -453,8 +453,12 @@ def main():
             report_path = generate_json_report(all_findings, str(json_path))
             if report_path:
                 print(f"\nJSON report generated: {colorize(report_path, ConsoleColors.BOLD_GREEN)}")
-        except Exception as e:
-            print(f"Error generating JSON report: {colorize(str(e), ConsoleColors.BOLD_RED)}")
+    # Generate cost report if requested
+    if args.cost_report:
+        try:
+            if not args.cost_report.lower().endswith('.html'):
+                print(f"Warning: Cost report path should end with .html")
+            from reporter.cost_reporter import generate_cost_report
     
     # Generate cost report if requested
     if args.cost_report:

@@ -5,13 +5,31 @@ import boto3
 from datetime import datetime, timedelta
 from botocore.exceptions import ClientError
 
-def generate_cost_report(output_path):
+def generate_cost_report(output_path: str) -> Optional[str]:
+    """Generate comprehensive 6-month cost analysis report
+    
+    Args:
+        output_path: Path where the report should be saved
+        
+    Returns:
+        Optional[str]: Path to the generated report or None if generation failed
+        
+    Raises:
+        ValueError: If output_path is invalid
+        boto3.exceptions.Boto3Error: If AWS API calls fail
+    """
+    if not output_path:
+        raise ValueError("output_path cannot be empty")
+        
+    try:
+        ce_client = boto3.client('ce', region_name=os.getenv('AWS_CE_REGION', 'us-east-1'))
+        budgets_client = boto3.client('budgets', region_name=os.getenv('AWS_CE_REGION', 'us-east-1'))
+        budgets_client = boto3.client('budgets', region_name='us-east-1')
+def generate_cost_report(output_path, region=None):
     """Generate comprehensive 6-month cost analysis report"""
     try:
-        ce_client = boto3.client('ce', region_name='us-east-1')
-        budgets_client = boto3.client('budgets', region_name='us-east-1')
-        
-        today = datetime.now().date()
+        ce_client = boto3.client('ce', region_name=region or 'us-east-1')
+        budgets_client = boto3.client('budgets', region_name=region or 'us-east-1')
         six_months_ago = today - timedelta(days=180)
         
         # Get 6-month cost trends by service
@@ -237,6 +255,7 @@ def generate_cost_report(output_path):
             f.write(html_content)
         
         return output_path
-        
     except Exception as e:
+        print(f"Error generating cost report: {str(e)}")
+        raise RuntimeError(f"Failed to generate cost report: {str(e)}")
         return None
