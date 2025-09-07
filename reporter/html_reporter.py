@@ -89,8 +89,7 @@ def generate_html_report(findings, output_path=None):
             regions[region] = 0
         regions[region] += 1
     
-    # Remove security score calculation
-    security_score = {'score': 0, 'label': 'N/A', 'description': 'Security scoring disabled', 'css_class': 'score-disabled'}
+    # Security scoring removed for cleaner UI
     
     # Prepare data for the template
     template_data = {
@@ -100,7 +99,7 @@ def generate_html_report(findings, output_path=None):
         'risk_levels': dict(sorted_risk_levels),
         'regions': regions,
         'findings': findings,
-        'security_score': security_score,
+
         'categories': categories
     }
     
@@ -112,28 +111,36 @@ def generate_html_report(findings, output_path=None):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AWS Public Resource Exposure Monitor</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #232f3e;
-            --secondary-color: #ff9900;
-            --critical-color: #d13212;
-            --high-color: #ff9900;
-            --medium-color: #2b7489;
-            --low-color: #1e88e5;
-            --unknown-color: #757575;
-            --bg-light: #f9f9f9;
+            --primary-color: #0f1419;
+            --secondary-color: #ff6b35;
+            --accent-color: #00d4ff;
+            --critical-color: #ff1744;
+            --high-color: #ff6d00;
+            --medium-color: #00acc1;
+            --low-color: #00c853;
+            --info-color: #ffc107;
+            --unknown-color: #9e9e9e;
+            --bg-dark: #0a0e13;
+            --bg-light: #f8fafc;
             --bg-white: #ffffff;
-            --text-dark: #232f3e;
-            --text-light: #666666;
-            --border-color: #e0e0e0;
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --radius: 8px;
-            --score-excellent: #4caf50;
-            --score-good: #8bc34a;
-            --score-fair: #ffeb3b;
-            --score-poor: #ff9800;
-            --score-critical: #f44336;
+            --bg-card: #ffffff;
+            --text-dark: #1a202c;
+            --text-light: #718096;
+            --text-muted: #a0aec0;
+            --border-color: #e2e8f0;
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
+            --radius-sm: 6px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-success: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         }
         
         * {
@@ -143,12 +150,13 @@ def generate_html_report(findings, output_path=None):
         }
         
         body {
-            font-family: 'Roboto', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             line-height: 1.6;
             color: var(--text-dark);
-            background-color: var(--bg-light);
+            background: #f8fafc;
             padding: 0;
             margin: 0;
+            min-height: 100vh;
         }
         
         .container {
@@ -157,12 +165,14 @@ def generate_html_report(findings, output_path=None):
             padding: 20px;
         }
         
+
+        
         header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #37475a 100%);
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
             color: white;
-            padding: 30px 0;
+            padding: 20px 0;
             margin-bottom: 30px;
-            box-shadow: var(--shadow);
+            box-shadow: var(--shadow-lg);
         }
         
         header .container {
@@ -181,6 +191,7 @@ def generate_html_report(findings, output_path=None):
             width: 40px;
             height: 40px;
             fill: var(--secondary-color);
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
         }
         
         h1, h2, h3, h4 {
@@ -191,6 +202,7 @@ def generate_html_report(findings, output_path=None):
         h1 {
             font-size: 28px;
             color: white;
+            font-weight: 700;
         }
         
         h2 {
@@ -209,15 +221,53 @@ def generate_html_report(findings, output_path=None):
         }
         
         .summary-card {
-            background-color: var(--bg-white);
-            border-radius: var(--radius);
-            padding: 20px;
-            box-shadow: var(--shadow);
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-md);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-primary);
+            transform: scaleX(0);
             transition: transform 0.3s ease;
         }
         
+        .summary-card::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
         .summary-card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: var(--shadow-xl);
+        }
+        
+        .summary-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .summary-card:hover::after {
+            opacity: 1;
+            animation: pulse 1.5s infinite;
         }
         
         .summary-card h3 {
@@ -226,9 +276,11 @@ def generate_html_report(findings, output_path=None):
         }
         
         .summary-card .count {
-            font-size: 36px;
-            font-weight: 700;
+            font-size: 42px;
+            font-weight: 800;
             margin-bottom: 10px;
+            color: var(--primary-color);
+            line-height: 1;
         }
         
         .card-critical {
@@ -247,6 +299,10 @@ def generate_html_report(findings, output_path=None):
             border-top: 4px solid var(--low-color);
         }
         
+        .card-info {
+            border-top: 4px solid var(--info-color);
+        }
+        
         .card-total {
             border-top: 4px solid var(--secondary-color);
         }
@@ -259,10 +315,195 @@ def generate_html_report(findings, output_path=None):
         }
         
         .chart-card {
-            background-color: var(--bg-white);
-            border-radius: var(--radius);
-            padding: 20px;
-            box-shadow: var(--shadow);
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s ease;
+        }
+        
+        .chart-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .risk-dots-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px 0;
+        }
+        
+        .risk-dot-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.3);
+        }
+        
+        .risk-dot-group:last-child {
+            border-bottom: none;
+        }
+        
+        .risk-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            position: relative;
+            animation: pulse 2s infinite;
+        }
+        
+        .risk-dot::after {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            opacity: 0;
+            animation: ripple 2s infinite;
+        }
+        
+        .risk-dot.risk-critical {
+            background: var(--critical-color);
+            color: var(--critical-color);
+        }
+        
+        .risk-dot.risk-high {
+            background: var(--high-color);
+            color: var(--high-color);
+        }
+        
+        .risk-dot.risk-medium {
+            background: var(--medium-color);
+            color: var(--medium-color);
+        }
+        
+        .risk-dot.risk-low {
+            background: var(--low-color);
+            color: var(--low-color);
+        }
+        
+        .risk-dot.risk-unknown {
+            background: var(--unknown-color);
+            color: var(--unknown-color);
+        }
+        
+        .risk-dot.risk-info {
+            background: var(--info-color);
+            color: var(--info-color);
+        }
+        
+        .risk-label {
+            font-weight: 600;
+            font-size: 14px;
+            min-width: 80px;
+        }
+        
+        .risk-count {
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--text-dark);
+            margin-left: auto;
+        }
+        
+        .status-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px 0;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: #f1f5f9;
+            border-radius: var(--radius-md);
+            transition: all 0.3s ease;
+        }
+        
+        .status-item:hover {
+            background: #e2e8f0;
+            transform: translateX(5px);
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            position: relative;
+        }
+        
+        .status-dot::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border-radius: 50%;
+            background: currentColor;
+            opacity: 0.3;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-active {
+            background: var(--low-color);
+            color: var(--low-color);
+        }
+        
+        .status-warning {
+            background: var(--high-color);
+            color: var(--high-color);
+        }
+        
+        .status-critical {
+            background: var(--critical-color);
+            color: var(--critical-color);
+        }
+        
+        .status-info {
+            flex: 1;
+        }
+        
+        .status-label {
+            font-size: 13px;
+            color: var(--text-light);
+            margin-bottom: 4px;
+        }
+        
+        .status-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 0.8;
+            }
+        }
+        
+        @keyframes ripple {
+            0% {
+                transform: scale(0.8);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
         }
         
         .chart-title {
@@ -273,12 +514,13 @@ def generate_html_report(findings, output_path=None):
         }
         
         .table-container {
-            background-color: var(--bg-white);
-            border-radius: var(--radius);
-            padding: 20px;
-            box-shadow: var(--shadow);
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 0;
+            box-shadow: var(--shadow-md);
             margin-bottom: 30px;
-            overflow-x: auto;
+            overflow: hidden;
         }
         
         table {
@@ -287,11 +529,14 @@ def generate_html_report(findings, output_path=None):
         }
         
         th {
-            background-color: var(--primary-color);
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
             color: white;
-            padding: 12px 15px;
+            padding: 16px 20px;
             text-align: left;
-            font-weight: 500;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
         th:first-child {
@@ -303,8 +548,9 @@ def generate_html_report(findings, output_path=None):
         }
         
         td {
-            padding: 12px 15px;
-            border-bottom: 1px solid var(--border-color);
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+            font-size: 14px;
         }
         
         tr:nth-child(even) {
@@ -312,17 +558,37 @@ def generate_html_report(findings, output_path=None):
         }
         
         tr:hover {
-            background-color: rgba(255, 153, 0, 0.05);
+            background-color: #f1f5f9;
         }
         
         .badge {
-            display: inline-block;
-            padding: 4px 12px;
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 14px;
             border-radius: 20px;
-            font-size: 12px;
-            font-weight: 500;
+            font-size: 11px;
+            font-weight: 600;
             color: white;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: var(--shadow-sm);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .badge::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .badge:hover::before {
+            left: 100%;
         }
         
         .badge-critical {
@@ -343,6 +609,10 @@ def generate_html_report(findings, output_path=None):
         
         .badge-unknown {
             background-color: var(--unknown-color);
+        }
+        
+        .badge-info {
+            background-color: var(--info-color);
         }
         
         .resource-section {
@@ -366,9 +636,9 @@ def generate_html_report(findings, output_path=None):
         }
         
         .footer {
-            background-color: var(--primary-color);
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
             color: white;
-            padding: 20px 0;
+            padding: 30px 0;
             text-align: center;
             margin-top: 50px;
         }
@@ -395,26 +665,32 @@ def generate_html_report(findings, output_path=None):
         }
         
         .filter-button {
-            background-color: var(--bg-white);
+            background: white;
             border: 1px solid var(--border-color);
-            border-radius: 20px;
-            padding: 8px 15px;
+            border-radius: 25px;
+            padding: 10px 18px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
+            font-weight: 500;
             transition: all 0.3s ease;
+            color: var(--text-dark);
         }
         
         .filter-button:hover, .filter-button.active {
-            background-color: var(--secondary-color);
+            background: var(--primary-color);
             color: white;
-            border-color: var(--secondary-color);
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
         }
         
         .recommendation {
-            background-color: rgba(255, 153, 0, 0.1);
-            border-left: 3px solid var(--secondary-color);
-            padding: 10px 15px;
-            border-radius: 0 4px 4px 0;
+            background: #fef3c7;
+            border-left: 3px solid #f59e0b;
+            padding: 12px 16px;
+            border-radius: 0 8px 8px 0;
+            font-size: 13px;
+            line-height: 1.5;
         }
         
         .no-findings {
@@ -508,6 +784,27 @@ def generate_html_report(findings, output_path=None):
             transform: translateX(-50%);
         }
         
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .summary-card, .chart-card, .table-container {
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .summary-card:nth-child(1) { animation-delay: 0.1s; }
+        .summary-card:nth-child(2) { animation-delay: 0.2s; }
+        .summary-card:nth-child(3) { animation-delay: 0.3s; }
+        .summary-card:nth-child(4) { animation-delay: 0.4s; }
+        .summary-card:nth-child(5) { animation-delay: 0.5s; }
+        
         @media (max-width: 768px) {
             .charts-container {
                 grid-template-columns: 1fr;
@@ -525,6 +822,10 @@ def generate_html_report(findings, output_path=None):
             .logo {
                 margin-bottom: 15px;
                 justify-content: center;
+            }
+            
+            .container {
+                padding: 15px;
             }
         }
     </style>
@@ -568,14 +869,50 @@ def generate_html_report(findings, output_path=None):
                 <canvas id="resourceTypeChart"></canvas>
             </div>
             <div class="chart-card">
-                <div class="chart-title">Findings by Risk Level</div>
-                <canvas id="riskLevelChart"></canvas>
+                <div class="chart-title">Risk Distribution</div>
+                <div class="risk-dots-container">
+                    {% for risk, items in risk_levels.items() %}
+                    <div class="risk-dot-group">
+                        <div class="risk-dot risk-{{ risk.lower() }}"></div>
+                        <span class="risk-label">{{ risk }}</span>
+                        <span class="risk-count">{{ items|length }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
         
-        <div class="chart-card">
-            <div class="chart-title">Findings by AWS Region</div>
-            <canvas id="regionChart"></canvas>
+        <div class="charts-container">
+            <div class="chart-card">
+                <div class="chart-title">Regional Distribution</div>
+                <canvas id="regionChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Security Status Overview</div>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <div class="status-dot status-active"></div>
+                        <div class="status-info">
+                            <div class="status-label">Total Resources Scanned</div>
+                            <div class="status-value">{{ resource_types|length }}</div>
+                        </div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-dot status-warning"></div>
+                        <div class="status-info">
+                            <div class="status-label">Regions Analyzed</div>
+                            <div class="status-value">{{ regions|length }}</div>
+                        </div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-dot status-critical"></div>
+                        <div class="status-info">
+                            <div class="status-label">Critical Issues</div>
+                            <div class="status-value">{{ risk_levels.get('CRITICAL', [])|length }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <h2>Findings by Category</h2>
@@ -585,12 +922,9 @@ def generate_html_report(findings, output_path=None):
             {% for risk in risk_levels.keys() %}
             <button class="filter-button" data-filter="{{ risk.lower() }}">{{ risk }}</button>
             {% endfor %}
-            <button class="filter-button" data-filter="category-compute">Compute</button>
-            <button class="filter-button" data-filter="category-security">Security</button>
-            <button class="filter-button" data-filter="category-database">Database</button>
-            <button class="filter-button" data-filter="category-storage">Storage</button>
-            <button class="filter-button" data-filter="category-networking">Networking</button>
-            <button class="filter-button" data-filter="category-cost">Cost</button>
+            {% for category_name, items in categories.items() %}
+            <button class="filter-button" data-filter="category-{{ category_name.lower() }}">{{ category_name }}</button>
+            {% endfor %}
         </div>
         
         <div id="category-sections">
@@ -697,6 +1031,7 @@ def generate_html_report(findings, output_path=None):
                 'HIGH': '#ff9900',
                 'MEDIUM': '#2b7489',
                 'LOW': '#1e88e5',
+                'INFO': '#ffc107',
                 'UNKNOWN': '#757575'
             }
         };
@@ -788,8 +1123,8 @@ def generate_html_report(findings, output_path=None):
         
         // Region Chart
         const regionCtx = document.getElementById('regionChart').getContext('2d');
-        const regionLabels = [{% for region, count in regions.items() %}'{{ region }}',{% endfor %}];
-        const regionData = [{% for region, count in regions.items() %}{{ count }},{% endfor %}];
+        const regionLabels = [{% for region, count in regions.items() %}{% if count > 0 %}'{{ region }}',{% endif %}{% endfor %}];
+        const regionData = [{% for region, count in regions.items() %}{% if count > 0 %}{{ count }},{% endif %}{% endfor %}];
         
         new Chart(regionCtx, {
             type: 'bar',

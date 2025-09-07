@@ -132,6 +132,31 @@ def scan_amis(region=None):
                                 'Issue': f'AMI contains unencrypted volumes: {", ".join(unencrypted_volumes)}',
                                 'Recommendation': 'Create a new AMI with encrypted snapshots'
                             })
+                        
+                        # Check for old AMIs (older than 90 days)
+                        if creation_date:
+                            try:
+                                from dateutil import parser
+                                created_time = parser.parse(creation_date)
+                                current_time = datetime.now(created_time.tzinfo)
+                                ami_age = (current_time - created_time).days
+                                
+                                if ami_age > 90:
+                                    findings.append({
+                                        'ResourceType': 'AMI',
+                                        'ResourceId': image_id,
+                                        'ResourceName': image_name,
+                                        'Description': description,
+                                        'Platform': platform,
+                                        'CreationDate': creation_date,
+                                        'State': state,
+                                        'Region': current_region,
+                                        'Risk': 'MEDIUM',
+                                        'Issue': f'AMI is {ami_age} days old and may be outdated',
+                                        'Recommendation': 'Review and deregister old AMIs to reduce storage costs and security risks'
+                                    })
+                            except Exception:
+                                pass
             
             except ClientError as e:
                 pass

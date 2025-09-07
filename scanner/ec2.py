@@ -87,34 +87,12 @@ def scan_ec2_instances(region=None):
                         launch_time = instance.get('LaunchTime')
                         state = instance.get('State', {}).get('Name', 'unknown')
                         
-                        # Get instance name and check audit attributes
+                        # Get instance name from tags
                         instance_name = instance_id
-                        audit_exempt = False
-                        missing_audit_tags = True
-                        
                         for tag in instance.get('Tags', []):
-                            key = tag.get('Key', '').lower()
-                            if key == 'name':
+                            if tag.get('Key', '').lower() == 'name':
                                 instance_name = tag.get('Value')
-                            elif key in ['security-audit', 'cost-audit']:
-                                audit_exempt = True
-                                missing_audit_tags = False
-                        
-                        # Flag missing audit tags
-                        if missing_audit_tags:
-                            findings.append({
-                                'ResourceType': 'EC2 Instance',
-                                'ResourceId': instance_id,
-                                'ResourceName': instance_name,
-                                'Region': current_region,
-                                'Risk': 'MEDIUM',
-                                'Issue': 'Missing audit tags',
-                                'Recommendation': 'Add security-audit and cost-audit tags for compliance tracking'
-                            })
-                        
-                        # Skip security scanning if audit exempt
-                        if audit_exempt:
-                            continue
+                                break
                         
                         # Print progress every 10 instances or for the last one
                         pass
@@ -163,9 +141,10 @@ def scan_ec2_instances(region=None):
                         # Check if instance is using IMDSv1
                         metadata_options = instance.get('MetadataOptions', {})
                         http_tokens = metadata_options.get('HttpTokens', 'optional')
-                        http_endpoint = metadata_options.get('HttpEndpoint', 'disabled')
+                        http_endpoint = metadata_options.get('HttpEndpoint', 'enabled')
+                        hop_limit = metadata_options.get('HttpPutResponseHopLimit', 1)
                         
-                        if http_tokens == 'optional' and http_endpoint == 'enabled':
+                        if http_tokens != 'required' and http_endpoint == 'enabled':
                             findings.append({
                                 'ResourceType': 'EC2 Instance',
                                 'ResourceId': instance_id,
@@ -174,8 +153,22 @@ def scan_ec2_instances(region=None):
                                 'State': state,
                                 'Region': current_region,
                                 'Risk': 'HIGH',
-                                'Issue': 'Instance is using IMDSv1 (HttpTokens: optional)',
-                                'Recommendation': 'Configure instance to use IMDSv2 by setting HttpTokens to required'
+                                'Issue': f'EC2 instance uses IMDSv1 (HttpTokens: {http_tokens})',
+                                'Recommendation': 'Enforce IMDSv2 by setting HttpTokens to "required" for better security'
+                            })
+                        
+                        # Check IMDS hop limit
+                        if hop_limit > 1:
+                            findings.append({
+                                'ResourceType': 'EC2 Instance',
+                                'ResourceId': instance_id,
+                                'ResourceName': instance_name,
+                                'InstanceType': instance_type,
+                                'State': state,
+                                'Region': current_region,
+                                'Risk': 'MEDIUM',
+                                'Issue': f'EC2 instance IMDS hop limit is {hop_limit} (allows forwarding)',
+                                'Recommendation': 'Set HttpPutResponseHopLimit to 1 to prevent IMDS forwarding'
                             })
 
                         
@@ -381,6 +374,35 @@ def scan_ec2_instances(region=None):
 
                             except ClientError:
                                 pass
+                except ClientError:
+                    pass
+                
+                # Check for unused key pairs
+                try:
+                    key_pairs = regional_client.describe_key_pairs()
+                    all_key_pairs = {kp['KeyName'] for kp in key_pairs.get('KeyPairs', [])}
+                    
+                    # Get key pairs used by running instances
+                    used_key_pairs = set()
+                    for instance in instances:
+                        key_name = instance.get('KeyName')
+                        if key_name:
+                            used_key_pairs.add(key_name)
+                    
+                    # Find unused key pairs
+                    unused_key_pairs = all_key_pairs - used_key_pairs
+                    
+                    for key_name in unused_key_pairs:
+                        findings.append({
+                            'ResourceType': 'EC2 Key Pair',
+                            'ResourceId': key_name,
+                            'ResourceName': key_name,
+                            'Region': current_region,
+                            'Risk': 'LOW',
+                            'Issue': 'Key pair is not used by any running instances',
+                            'Recommendation': 'Remove unused key pairs to reduce security exposure'
+                        })
+                        
                 except ClientError:
                     pass
             

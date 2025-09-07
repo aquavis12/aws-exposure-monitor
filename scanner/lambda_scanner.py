@@ -89,6 +89,7 @@ def scan_lambda_functions(region=None):
                                 
                                 for statement in policy.get('Statement', []):
                                     principal = statement.get('Principal', {})
+                                    action = statement.get('Action', '')
                                     
                                     # Check if policy allows public access
                                     if principal == '*' or principal == {"AWS": "*"} or (isinstance(principal, dict) and principal.get('AWS') == '*'):
@@ -104,8 +105,61 @@ def scan_lambda_functions(region=None):
                                             'Recommendation': 'Restrict the function policy to specific principals'
                                         })
                                         break
+                                    
+                                    # Check for overly broad cross-account access
+                                    elif isinstance(principal, dict) and 'AWS' in principal:
+                                        aws_principal = principal['AWS']
+                                        if isinstance(aws_principal, str) and 'arn:aws:iam::' in aws_principal and '*' in aws_principal:
+                                            findings.append({
+                                                'ResourceType': 'Lambda Function',
+                                                'ResourceId': function_name,
+                                                'ResourceName': function_name,
+                                                'ResourceArn': function_arn,
+                                                'Runtime': runtime,
+                                                'Region': current_region,
+                                                'Risk': 'MEDIUM',
+                                                'Issue': 'Lambda function allows broad cross-account access',
+                                                'Recommendation': 'Restrict cross-account access to specific accounts and add conditions'
+                                            })
                         except ClientError as e:
                             # No resource policy - this is normal
+                            pass
+                        
+                        # Check function configuration for security issues
+                        try:
+                            func_config = lambda_client.get_function_configuration(FunctionName=function_name)
+                            
+                            # Check if function has VPC configuration for sensitive workloads
+                            vpc_config = func_config.get('VpcConfig', {})
+                            if not vpc_config.get('VpcId') and 'prod' in function_name.lower():
+                                findings.append({
+                                    'ResourceType': 'Lambda Function',
+                                    'ResourceId': function_name,
+                                    'ResourceName': function_name,
+                                    'ResourceArn': function_arn,
+                                    'Runtime': runtime,
+                                    'Region': current_region,
+                                    'Risk': 'MEDIUM',
+                                    'Issue': 'Production Lambda function not in VPC',
+                                    'Recommendation': 'Consider placing production functions in VPC for network isolation'
+                                })
+                            
+                            # Check for environment variables that might contain secrets
+                            env_vars = func_config.get('Environment', {}).get('Variables', {})
+                            for var_name, var_value in env_vars.items():
+                                if any(keyword in var_name.lower() for keyword in ['password', 'secret', 'key', 'token']) and len(var_value) > 10:
+                                    findings.append({
+                                        'ResourceType': 'Lambda Function',
+                                        'ResourceId': function_name,
+                                        'ResourceName': function_name,
+                                        'ResourceArn': function_arn,
+                                        'Runtime': runtime,
+                                        'Region': current_region,
+                                        'Risk': 'HIGH',
+                                        'Issue': f'Lambda function has potential secret in environment variable: {var_name}',
+                                        'Recommendation': 'Use AWS Secrets Manager or Parameter Store for sensitive values'
+                                    })
+                        except ClientError:
                             pass
             
             except ClientError as e:

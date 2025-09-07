@@ -54,14 +54,15 @@ python main.py --risk-level HIGH --html-report report.html
 ## 📋 Available Scan Types
 
 ### By Category
-- **compute** - EC2, AMIs, ECR, Lambda, Lightsail
-- **security** - IAM, Security Groups, Secrets, CloudTrail, GuardDuty, WAF
+- **compute** - EC2, AMIs, ECR, Lambda, Lightsail, EKS, ECS
+- **security** - IAM, Security Groups, Secrets, CloudTrail, GuardDuty, WAF, Tagging
 - **database** - RDS, Aurora, DynamoDB, Elasticsearch, OpenSearch, ElastiCache, Redshift
 - **storage** - S3, EBS, EFS
-- **networking** - API Gateway, CloudFront, ELB, VPC, SNS, SQS
+- **networking** - API Gateway, CloudFront, ELB, VPC, SNS, SQS, AppSync
+- **ai** - SageMaker, Bedrock, Q Business
 
 ### Individual Services
-`s3`, `ec2`, `iam`, `sg`, `rds`, `api`, `lambda`, `cloudfront`, `elb`, `vpc`, `sns`, `sqs`, `dynamodb`, `secrets`, `cloudtrail`, `guardduty`, `waf`, `terraform`, `efs`, `elasticache`, `opensearch`, `redshift`
+`s3`, `ec2`, `iam`, `sg`, `rds`, `api`, `lambda`, `cloudfront`, `elb`, `vpc`, `sns`, `sqs`, `dynamodb`, `secrets`, `cloudtrail`, `guardduty`, `waf`, `terraform`, `efs`, `elasticache`, `opensearch`, `redshift`, `eks`, `ecs`, `appsync`, `sagemaker`, `bedrock`, `q-business`, `tagging`, `inspector`, `security-hub`
 
 ## 📊 Command Line Options
 
@@ -87,7 +88,6 @@ python main.py --risk-level HIGH --html-report report.html
 
 - [Commands Reference](md/commands.md) - Detailed command examples
 - [Scanner Details](md/scanners.md) - Information about each scanner
-- [Report Examples](md/reports.md) - Sample reports and outputs
 
 ## 🛠️ Project Structure
 

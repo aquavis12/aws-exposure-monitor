@@ -70,9 +70,9 @@ def scan_iam_users(region=None):
                                 'ResourceName': user_name,
                                 'ResourceArn': user_arn,
                                 'Region': 'global',
-                                'Risk': 'MEDIUM',
-                                'Issue': f'IAM user has not logged in for {days_since_login} days',
-                                'Recommendation': 'Review if this user is still needed or disable console access'
+                                'Risk': 'HIGH',
+                                'Issue': f'IAM user has not accessed console for {days_since_login} days',
+                                'Recommendation': 'Disable or remove inactive user account'
                             })
                     else:
                         # User has never logged in
@@ -85,9 +85,9 @@ def scan_iam_users(region=None):
                                 'ResourceName': user_name,
                                 'ResourceArn': user_arn,
                                 'Region': 'global',
-                                'Risk': 'MEDIUM',
-                                'Issue': f'IAM user has never logged in (created {days_since_creation} days ago)',
-                                'Recommendation': 'Review if this user is still needed or disable console access'
+                                'Risk': 'HIGH',
+                                'Issue': f'IAM user never accessed console (created {days_since_creation} days ago)',
+                                'Recommendation': 'Remove unused user account'
                             })
                 
                 # Check MFA status
@@ -137,16 +137,16 @@ def scan_iam_users(region=None):
                             if last_used_date:
                                 days_since_use = (current_time - last_used_date).days
                                 
-                                if days_since_use > 60:
+                                if days_since_use > 180:
                                     findings.append({
                                         'ResourceType': 'IAM Access Key',
                                         'ResourceId': key_id,
                                         'ResourceName': f"{user_name}'s access key",
                                         'ResourceArn': user_arn,
                                         'Region': 'global',
-                                        'Risk': 'MEDIUM',
-                                        'Issue': f'Access key has not been used for {days_since_use} days',
-                                        'Recommendation': 'Deactivate or delete unused access keys'
+                                        'Risk': 'HIGH',
+                                        'Issue': f'Access key unused for {days_since_use} days',
+                                        'Recommendation': 'Delete unused access key'
                                     })
                             else:
                                 # Key has never been used
@@ -164,15 +164,15 @@ def scan_iam_users(region=None):
                         except ClientError as e:
                             pass
                 
-                # Check for admin privileges
+                # Check for excessive privileges
                 try:
-                    # Get user policies
-                    user_policies = []
-                    
-                    # Attached policies
+                    # Check attached policies
                     attached_policies = iam_client.list_attached_user_policies(UserName=user_name).get('AttachedPolicies', [])
                     for policy in attached_policies:
                         policy_arn = policy.get('PolicyArn')
+                        policy_name = policy.get('PolicyName')
+                        
+                        # Check for admin access
                         if 'AdministratorAccess' in policy_arn:
                             findings.append({
                                 'ResourceType': 'IAM User',
@@ -180,13 +180,82 @@ def scan_iam_users(region=None):
                                 'ResourceName': user_name,
                                 'ResourceArn': user_arn,
                                 'Region': 'global',
-                                'Risk': 'HIGH',
-                                'Issue': 'IAM user has administrator access',
-                                'Recommendation': 'Limit administrator access to only necessary users and use roles instead'
+                                'Risk': 'CRITICAL',
+                                'Issue': 'IAM user has AdministratorAccess policy',
+                                'Recommendation': 'Remove admin access, use roles with temporary credentials instead'
                             })
-                            break
+                        elif 'PowerUserAccess' in policy_arn:
+                            findings.append({
+                                'ResourceType': 'IAM User',
+                                'ResourceId': user_name,
+                                'ResourceName': user_name,
+                                'ResourceArn': user_arn,
+                                'Region': 'global',
+                                'Risk': 'HIGH',
+                                'Issue': 'IAM user has PowerUserAccess policy',
+                                'Recommendation': 'Replace with specific permissions needed for user role'
+                            })
+                        elif 'FullAccess' in policy_name:
+                            findings.append({
+                                'ResourceType': 'IAM User',
+                                'ResourceId': user_name,
+                                'ResourceName': user_name,
+                                'ResourceArn': user_arn,
+                                'Region': 'global',
+                                'Risk': 'HIGH',
+                                'Issue': f'IAM user has overly broad policy: {policy_name}',
+                                'Recommendation': 'Replace with specific permissions following least privilege principle'
+                            })
+                    
+                    # Check inline policies for wildcards and dangerous permissions
+                    inline_policies = iam_client.list_user_policies(UserName=user_name).get('PolicyNames', [])
+                    for policy_name in inline_policies:
+                        try:
+                            policy_doc = iam_client.get_user_policy(UserName=user_name, PolicyName=policy_name)
+                            policy_text = str(policy_doc.get('PolicyDocument', {}))
+                            
+                            if '"Action": "*"' in policy_text and '"Resource": "*"' in policy_text:
+                                findings.append({
+                                    'ResourceType': 'IAM User',
+                                    'ResourceId': user_name,
+                                    'ResourceName': user_name,
+                                    'ResourceArn': user_arn,
+                                    'Region': 'global',
+                                    'Risk': 'CRITICAL',
+                                    'Issue': f'IAM user has wildcard permissions (Action:*, Resource:*) in policy: {policy_name}',
+                                    'Recommendation': 'Replace with specific actions and resources needed'
+                                })
+                            elif 'iam:' in policy_text and ('CreateUser' in policy_text or 'AttachUserPolicy' in policy_text):
+                                findings.append({
+                                    'ResourceType': 'IAM User',
+                                    'ResourceId': user_name,
+                                    'ResourceName': user_name,
+                                    'ResourceArn': user_arn,
+                                    'Region': 'global',
+                                    'Risk': 'HIGH',
+                                    'Issue': f'IAM user can modify IAM users/policies in policy: {policy_name}',
+                                    'Recommendation': 'Remove IAM management permissions from user policies'
+                                })
+                        except ClientError:
+                            pass
+                    
+                    # Check group memberships
+                    groups = iam_client.get_groups_for_user(UserName=user_name).get('Groups', [])
+                    for group in groups:
+                        group_name = group.get('GroupName')
+                        if 'admin' in group_name.lower() or 'power' in group_name.lower():
+                            findings.append({
+                                'ResourceType': 'IAM User',
+                                'ResourceId': user_name,
+                                'ResourceName': user_name,
+                                'ResourceArn': user_arn,
+                                'Region': 'global',
+                                'Risk': 'HIGH',
+                                'Issue': f'IAM user is member of privileged group: {group_name}',
+                                'Recommendation': 'Review group membership and use roles for elevated access'
+                            })
                 
-                except ClientError as e:
+                except ClientError:
                     pass
         
         # Check password policy
